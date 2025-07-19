@@ -24,6 +24,8 @@ export default function WaitingRoom() {
         const state = await getGameState(token);
         setPlayers(state.players || []);
         setGameStarted(!!state.started);
+        // DEBUG: показываем состояние игры
+        console.log("WaitingRoom polling:", { started: state.started, role, name });
         // Проверяем, у всех ли игроков есть 3 факта
         const factsPerPlayer: Record<number, number> = {};
         (state.facts || []).forEach((f: any) => {
@@ -33,6 +35,7 @@ export default function WaitingRoom() {
         const allReady = (state.players || []).every((p: any) => factsPerPlayer[p.id] === 3);
         setAllFactsReady(allReady);
         if (state.started) {
+          console.log("Game started, navigating to /round");
           navigate("/round");
         }
       } catch (e) {

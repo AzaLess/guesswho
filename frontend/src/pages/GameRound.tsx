@@ -13,25 +13,68 @@ export default function GameRound() {
   const [correctGuesser, setCorrectGuesser] = useState("");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    getGameState(token).then(data => {
-      const unguessed = data.facts.filter((f: any) => !f.guessed && f.author !== player.id);
-      setFacts(unguessed);
-      setCurrent(unguessed[0] || null);
-      setPlayers(data.players);
-    });
-    // scoreboard
-    fetch(`/api/game/scoreboard/${token}/`).then(r => r.json()).then(setScores);
-  }, [token, player.id]);
+    const loadGameData = async () => {
+      try {
+        console.log("GameRound: Loading game state for player:", player);
+        const data = await getGameState(token);
+        console.log("GameRound: Game state received:", data);
+        const unguessed = data.facts.filter((f: any) => !f.guessed);
+        console.log("GameRound: All facts:", data.facts);
+        console.log("GameRound: Unguessed facts:", unguessed);
+        console.log("GameRound: Current fact will be set to:", unguessed[0] || null);
+        setFacts(unguessed);
+        setCurrent(unguessed[0] || null);
+        setPlayers(data.players);
+        
+        // Обновляем таблицу очков
+        const scoresData = await fetch(`/api/game/scoreboard/${token}/`).then(r => r.json());
+        setScores(scoresData);
+        
+        // Отмечаем, что данные загружены
+        setDataLoaded(true);
+      } catch (error) {
+        console.error("Error loading game data:", error);
+        setDataLoaded(true); // Даже при ошибке отмечаем как загруженное
+      }
+    };
 
-  const handleNext = () => {
+    // Загружаем данные сразу
+    loadGameData();
+    
+    // Для участников (не ведущих) добавляем polling каждые 3 секунды
+    let interval: number | null = null;
+    if (!player.is_host) {
+      interval = setInterval(loadGameData, 3000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [token, player.id, player.is_host]);
+
+  const handleNext = async () => {
     const idx = facts.indexOf(current);
     setCurrent(facts[idx + 1] || null);
     setWrongGuesses(0);
     setCorrectGuesser("");
     setResult("");
+    
+    // Обновляем данные игры для ведущего, чтобы обновить счетчик
+    if (player.is_host) {
+      try {
+        const data = await getGameState(token);
+        const unguessed = data.facts.filter((f: any) => !f.guessed);
+        setFacts(unguessed);
+        // Обновляем current на основе обновленного списка
+        setCurrent(unguessed[0] || null);
+      } catch (error) {
+        console.error("Error updating game data for host:", error);
+      }
+    }
   };
 
   const handleResult = async () => {
@@ -40,6 +83,9 @@ export default function GameRound() {
     try {
       const correctPlayerId = Number(correctGuesser);
       await sendGuessEvent(current.id, correctPlayerId, wrongGuesses);
+      // Обновляем таблицу очков после сохранения результата
+      const updatedScores = await fetch(`/api/game/scoreboard/${token}/`).then(r => r.json());
+      setScores(updatedScores);
       setResult("Результат сохранён!");
       setTimeout(handleNext, 1000);
     } catch {
@@ -48,12 +94,27 @@ export default function GameRound() {
     setLoading(false);
   };
 
-  if (!current) return (
-    <div className="app-container">
-      <h2>Раунды завершены!</h2>
-      <button onClick={() => navigate("/scoreboard")}>Посмотреть очки</button>
-    </div>
-  );
+  // Показываем загрузку, пока данные не загружены
+  if (!dataLoaded) {
+    return (
+      <div className="app-container">
+        <h2>⏳ Загрузка игры...</h2>
+      </div>
+    );
+  }
+
+  // Только после загрузки проверяем, есть ли вопросы
+  if (!current) {
+    console.log("GameRound: No current fact after data loaded! Facts array:", facts, "Current:", current);
+    // Автоматически переходим к финальному экрану для всех игроков
+    setTimeout(() => navigate("/end"), 1000);
+    return (
+      <div className="app-container">
+        <h2>🎉 Раунды завершены! 🎉</h2>
+        <p>Переходим к результатам...</p>
+      </div>
+    );
+  }
 
   // Сколько осталось вопросов
   const questionsLeft = facts.length;
@@ -65,7 +126,7 @@ export default function GameRound() {
       <ul style={{ listStyle: "none", padding: 0 }}>
         {scores.map((s: any) => (
           <li key={s.id}>
-            <b>{players.find((p: any) => p.id === s.player)?.name || s.player}</b>: {s.points}
+            {s.player_emoji || "🧑"} <b>{s.player_name || players.find((p: any) => p.id === s.player)?.name || s.player}</b>: {s.points}
           </li>
         ))}
       </ul>

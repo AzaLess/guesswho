@@ -11,6 +11,8 @@ export default function Welcome() {
   const handleStart = () => {
     if (role === "host") {
       if (!name.trim()) return alert("Введите имя!");
+      // Очищаем все данные предыдущей игры
+      localStorage.clear();
       localStorage.setItem("role", "host");
       localStorage.setItem("name", name);
       navigate("/create");
@@ -19,6 +21,8 @@ export default function Welcome() {
 
   const handleJoin = async () => {
     if (!name.trim() || !token.trim()) return alert("Введите имя и код комнаты!");
+    // Очищаем все данные предыдущей игры
+    localStorage.clear();
     localStorage.setItem("role", "player");
     localStorage.setItem("name", name);
     localStorage.setItem("token", token);

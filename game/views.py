@@ -128,7 +128,9 @@ class GameStateView(views.APIView):
         return Response({
             'game': GameSerializer(game).data,
             'players': PlayerSerializer(players, many=True).data,
-            'facts': FactSerializer(facts, many=True).data
+            'facts': FactSerializer(facts, many=True).data,
+            'started': game.started,
+            'ended': game.ended
         })
 
 class RevealStoryView(views.APIView):

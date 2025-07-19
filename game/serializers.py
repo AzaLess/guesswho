@@ -22,6 +22,9 @@ class GuessEventSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ScoreSerializer(serializers.ModelSerializer):
+    player_name = serializers.CharField(source='player.name', read_only=True)
+    player_emoji = serializers.CharField(source='player.emoji', read_only=True)
+    
     class Meta:
         model = Score
-        fields = '__all__'
+        fields = ['id', 'player', 'player_name', 'player_emoji', 'game', 'points']

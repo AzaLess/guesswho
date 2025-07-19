@@ -12,6 +12,14 @@ export default function CreateGame() {
         const name = localStorage.getItem("name") || "Ведущий";
         const game = await createGame(name);
         if (isMounted) {
+          // Сохраняем токен игры
+          localStorage.setItem("token", game.token);
+          // Получаем данные ведущего через getGameState
+          const state = await fetch(`/api/game/state/${game.token}/`).then(r => r.json());
+          const hostPlayer = state.players.find((p: any) => p.is_host);
+          if (hostPlayer) {
+            localStorage.setItem("player", JSON.stringify(hostPlayer));
+          }
           navigate("/facts", { state: { token: game.token, isHost: true } });
         }
       } catch {

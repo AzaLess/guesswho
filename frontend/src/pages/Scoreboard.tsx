@@ -17,7 +17,7 @@ export default function Scoreboard() {
       <ul>
         {scores.map((s, i) => (
           <li key={s.id || i}>
-            🧑 <b>{s.player}</b>: ⭐ {s.points}
+            {s.player_emoji || "🧑"} <b>{s.player_name}</b>: ⭐ {s.points}
           </li>
         ))}
       </ul>
