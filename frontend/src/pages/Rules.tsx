@@ -43,7 +43,14 @@ export default function Rules() {
           border: '1px solid #e9ecef',
           marginBottom: '20px'
         }}>
-          <ul style={{ margin: 0, paddingLeft: '16px' }}>
+          <ul style={{ 
+            margin: 0, 
+            paddingLeft: '16px',
+            color: '#000000',
+            fontWeight: '600',
+            fontSize: '15px',
+            lineHeight: '1.5'
+          }}>
             <li>{t('rules.example1')}</li>
             <li>{t('rules.example2')}</li>
             <li>{t('rules.example3')}</li>
