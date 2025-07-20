@@ -14,7 +14,7 @@ export default function CreateGame() {
     let isMounted = true;
     const create = async () => {
       try {
-        const name = localStorage.getItem("name") || "Ведущий";
+        const name = localStorage.getItem("name") || "Host";
         const game = await createGame(name);
         if (isMounted) {
           // Сохраняем токен игры и данные игрока

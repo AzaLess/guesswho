@@ -23,7 +23,7 @@ export default function Welcome() {
   }, []);
 
   const handleStart = async () => {
-    if (!name) return showError("Введите ваше имя!");
+    if (!name) return showError(t('welcome.enterNameAndCode'));
     console.log('DEBUG: Creating game for host:', name);
     setLoading(true);
     
@@ -39,13 +39,13 @@ export default function Welcome() {
       }
     } catch (error) {
       console.error('DEBUG: Failed to create game:', error);
-      showError("Ошибка создания игры. Попробуйте снова.");
+      showError(t('create.error'));
     }
     setLoading(false);
   };
 
   const handleJoin = async () => {
-    if (!token || !name) return showError("Введите код игры и имя!");
+    if (!token || !name) return showError(t('welcome.enterNameAndCode'));
     console.log('DEBUG: Starting join process', { token, name });
     setLoading(true);
     
@@ -67,7 +67,7 @@ export default function Welcome() {
       console.log('DEBUG: Navigation called');
     } catch (error) {
       console.error('DEBUG: joinGame failed:', error);
-      showError("Ошибка входа. Проверьте код и попробуйте снова.");
+      showError(t('welcome.joinError'));
     }
     setLoading(false);
     console.log('DEBUG: Join process completed');
@@ -96,7 +96,7 @@ export default function Welcome() {
             onChange={(e) => setName(e.target.value)}
           />
           <button onClick={handleStart} disabled={loading}>
-            {loading ? "⏳ Создание..." : t('welcome.startGame')}
+            {loading ? t('create.title') : t('welcome.startGame')}
           </button>
           <button onClick={() => setMode("")}>{t('welcome.back')}</button>
         </div>
@@ -104,14 +104,13 @@ export default function Welcome() {
       
       {mode === "player" && (
         <div className="name-input">
-          <label>🔑 Код игры:</label>
+          <label>{t('welcome.gameCode')}</label>
           <input 
             value={token} 
-            onChange={e => setToken(e.target.value.toLowerCase().trim())} 
-            placeholder="например: tiger77"
-            style={{ textTransform: 'lowercase' }}
+            onChange={(e) => setToken(e.target.value.toLowerCase().trim())} 
+            placeholder={t('welcome.tokenPlaceholder')}
           />
-          <label>🧑 Ваше имя:</label>
+          <label>{t('welcome.playerName')}</label>
           <input 
             value={name} 
             onChange={e => setName(e.target.value)}
@@ -122,7 +121,7 @@ export default function Welcome() {
             disabled={loading}
             style={{backgroundColor: loading ? '#ccc' : '#4CAF50', color: 'white'}}
           >
-            {loading ? "⏳ Вход..." : "🚀 Войти в игру"}
+            {loading ? t('welcome.next') : t('welcome.joinGame')}
           </button>
           <button onClick={() => setMode("")}>{t('welcome.back')}</button>
         </div>

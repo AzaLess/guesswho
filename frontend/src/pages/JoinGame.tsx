@@ -3,11 +3,13 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { joinGame } from "../api";
 import ToastContainer from "../components/ToastContainer";
 import { useToast } from "../hooks/useToast";
+import { useLanguage } from "../contexts/LanguageContext";
 
 export default function JoinGame() {
   console.log('DEBUG: JoinGame component loaded with latest changes!');
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useLanguage();
   const [token, setToken] = useState(location.state?.token || "");
   const [name, setName] = useState(location.state?.name || "");
   const [loading, setLoading] = useState(false);
@@ -21,7 +23,7 @@ export default function JoinGame() {
   }, []);
 
   const handleJoin = async () => {
-    if (!token || !name) return showError("Введите код игры и имя!");
+    if (!token || !name) return showError(t('welcome.enterNameAndCode'));
     console.log('DEBUG: Starting join process', { token, name });
     setLoading(true);
     try {
@@ -41,7 +43,7 @@ export default function JoinGame() {
       console.log('DEBUG: Navigation called');
     } catch (error) {
       console.error('DEBUG: joinGame failed:', error);
-      showError("Ошибка входа. Проверьте код и попробуйте снова.");
+      showError(t('welcome.joinError'));
     }
     setLoading(false);
     console.log('DEBUG: Join process completed');
@@ -50,15 +52,16 @@ export default function JoinGame() {
   return (
     <div className="app-container">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <h2>🚪 Вход в игру</h2>
-      <label>🔑 Код игры:</label>
+      <h2>{t('welcome.join')}</h2>
+      <label>{t('welcome.gameCode')}</label>
       <input 
+        type="text"
         value={token} 
         onChange={e => setToken(e.target.value.toLowerCase().trim())} 
-        placeholder="например: tiger77"
+        placeholder={t('welcome.tokenPlaceholder')}
         style={{ textTransform: 'lowercase' }}
       />
-      <label>🧑 Ваше имя:</label>
+      <label>{t('welcome.playerName')}</label>
       <input value={name} onChange={e => setName(e.target.value)} />
       <button 
         type="button"
@@ -73,7 +76,7 @@ export default function JoinGame() {
         disabled={loading}
         style={{backgroundColor: 'red', color: 'white'}}
       >
-        {loading ? "⏳ Вход..." : "🚀 Войти (DEBUG)"}
+        {loading ? t('welcome.next') : t('welcome.joinGame')}
       </button>
     </div>
   );

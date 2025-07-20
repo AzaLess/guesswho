@@ -6,6 +6,13 @@ export default function Rules() {
   const navigate = useNavigate();
   const { t } = useLanguage();
 
+  // DEBUG: Проверяем, что возвращает функция перевода
+  console.log('Rules DEBUG:', {
+    'rules.examples': t('rules.examples'),
+    'rules.example1': t('rules.example1'),
+    'rules.example2': t('rules.example2')
+  });
+
   return (
     <div className="app-container">
       <BackToMenuButton />

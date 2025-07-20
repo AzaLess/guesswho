@@ -95,7 +95,7 @@ export default function GameRound() {
         setDataLoaded(true);
       } catch (error) {
         console.error("Error loading game data:", error);
-        showError("Ошибка загрузки игровых данных");
+        showError(t('round.dataError'));
         setDataLoaded(true); // Даже при ошибке отмечаем как загруженное
       }
     };
