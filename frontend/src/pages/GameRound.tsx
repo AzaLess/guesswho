@@ -22,7 +22,7 @@ export default function GameRound() {
   const [showNewFactCount, setShowNewFactCount] = useState(false);
   const [previousFactsCount, setPreviousFactsCount] = useState(0);
   const navigate = useNavigate();
-  const { toasts, showSuccess, showError, showInfo, removeToast } = useToast();
+  const { toasts, showSuccess, showError, removeToast } = useToast();
 
   useEffect(() => {
     let prevFactTimestamp: string | null = null;
