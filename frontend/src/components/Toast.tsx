@@ -17,7 +17,7 @@ export default function Toast({ message, type = 'info', onClose }: ToastProps) {
     
     timerRef.current = setTimeout(() => {
       onClose();
-    }, 3000);
+    }, 3000) as unknown as number;
 
     return () => {
       if (timerRef.current) {

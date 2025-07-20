@@ -1,5 +1,7 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+// Добавляем типы Node для process
+/// <reference types="node" />
 
 const isProd = process.env.NODE_ENV === 'production';
 

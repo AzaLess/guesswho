@@ -20,7 +20,7 @@ export default function GameRound() {
   const [newFact, setNewFact] = useState("");
   const [addingFact, setAddingFact] = useState(false);
   const [showNewFactCount, setShowNewFactCount] = useState(false);
-  const [previousFactsCount, setPreviousFactsCount] = useState(0);
+  
   const navigate = useNavigate();
   const { toasts, showSuccess, showError, removeToast } = useToast();
 
@@ -51,7 +51,7 @@ export default function GameRound() {
         
         // Обновляем localStorage
         localStorage.setItem('lastFactCount', unguessed.length.toString());
-        setPreviousFactsCount(unguessed.length);
+        
         
         setFacts(unguessed);
         // НЕ меняем current факт при polling - только если он не установлен
