@@ -21,6 +21,18 @@ export default function EndScreen() {
     endGame(token);
   }, [token]);
 
+  if (!scores.length || !stats) {
+    return (
+      <div className="app-container">
+        <h2>🎉 Игра завершена! 🎉</h2>
+        <div style={{ textAlign: 'center', marginTop: 40 }}>
+          <span style={{fontSize: 32}}>⏳</span>
+          <div style={{marginTop: 16}}>Загружаем статистику...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       <h2>🎉 Игра завершена! 🎉</h2>

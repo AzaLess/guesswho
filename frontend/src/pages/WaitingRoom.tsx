@@ -75,7 +75,7 @@ export default function WaitingRoom() {
             <div key={p.id} className="player-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', margin: '4px 0', background: '#f5f5f5', borderRadius: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{fontSize: 24}}>{p.emoji || "🙂"}</span>
-                <span>{p.name}</span>
+                <span style={{ color: '#111' }}>{p.name}</span>
                 {p.is_host && isCurrentUser ? " 👑 (Вы)" : p.is_host ? " 👑" : isCurrentUser ? " (Вы)" : ""}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '14px' }}>

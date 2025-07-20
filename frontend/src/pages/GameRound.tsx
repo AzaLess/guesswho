@@ -35,8 +35,11 @@ export default function GameRound() {
         console.log("GameRound: All facts:", data.facts);
         console.log("GameRound: Unguessed facts:", unguessed);
         
-        // Проверяем, увеличилось ли количество фактов (кто-то добавил новый)
-        console.log(`GameRound: Проверка фактов: текущие=${unguessed.length}, предыдущие=${previousFactsCount}`);
+        // Если игра завершена — сразу переходим на финальный экран
+        if (data.ended) {
+          navigate("/end");
+          return;
+        }
         
         // Синхронизируем анимацию +1 по серверному timestamp
         const factTimestamp = data.last_fact_added;
