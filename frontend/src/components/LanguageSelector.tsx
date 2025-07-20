@@ -7,6 +7,7 @@ export default function LanguageSelector() {
     { code: 'en', name: 'English', emoji: '🇬🇧' },
     { code: 'uk', name: 'Українська', emoji: '🇺🇦' },
     { code: 'ru', name: 'Русский', emoji: '🌐' }, // Используем глобус вместо флага
+    { code: 'de', name: 'Deutsch', emoji: '🇩🇪' },
   ];
 
   const getLanguageCode = (code: Language): string => {
@@ -14,6 +15,8 @@ export default function LanguageSelector() {
       case 'en': return 'EN';
       case 'uk': return 'UA';
       case 'ru': return 'RU';
+      case 'de': return 'DE';
+      default: return 'EN';
     }
   };
 
