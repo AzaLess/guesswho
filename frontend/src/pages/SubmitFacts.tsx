@@ -76,6 +76,52 @@ export default function SubmitFacts() {
       <button onClick={handleSubmit} disabled={loading || done}>
         {loading ? t('facts.sending') : done ? t('facts.done') : t('facts.send')}
       </button>
+      
+      {/* Примеры для вдохновения */}
+      <div style={{ 
+        marginTop: '40px', 
+        padding: '20px', 
+        backgroundColor: '#f8f9fa', 
+        borderRadius: '12px',
+        border: '1px solid #e9ecef'
+      }}>
+        <h3 style={{ 
+          color: '#495057', 
+          marginBottom: '16px', 
+          fontSize: '18px',
+          textAlign: 'center'
+        }}>
+          {t('rules.examples')}
+        </h3>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+          gap: '8px',
+          fontSize: '14px',
+          color: '#6c757d',
+          lineHeight: '1.4'
+        }}>
+          <div>{t('rules.example1')}</div>
+          <div>{t('rules.example2')}</div>
+          <div>{t('rules.example3')}</div>
+          <div>{t('rules.example4')}</div>
+          <div>{t('rules.example5')}</div>
+          <div>{t('rules.example6')}</div>
+          <div>{t('rules.example7')}</div>
+          <div>{t('rules.example8')}</div>
+          <div>{t('rules.example9')}</div>
+          <div>{t('rules.example10')}</div>
+        </div>
+        <p style={{ 
+          marginTop: '16px', 
+          fontSize: '13px', 
+          color: '#868e96', 
+          textAlign: 'center',
+          fontStyle: 'italic'
+        }}>
+          {t('facts.inspiration')}
+        </p>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export type Language = 'en' | 'uk' | 'ru';
+export type Language = 'en' | 'uk' | 'ru' | 'de';
 
 interface LanguageContextType {
   language: Language;
@@ -51,6 +51,7 @@ const translations: Translations = {
     'facts.done': '✅ Done!',
     'facts.error': 'Enter at least 3 facts!',
     'facts.submitError': 'Error submitting facts',
+    'facts.inspiration': 'Use these examples as inspiration, but write your own unique facts!',
     
     // Waiting room
     'waiting.title': '🏠 Waiting for participants',
@@ -168,6 +169,7 @@ const translations: Translations = {
     'facts.done': '✅ Готово!',
     'facts.error': 'Введіть мінімум 3 факти!',
     'facts.submitError': 'Помилка відправки фактів',
+    'facts.inspiration': 'Використовуйте ці приклади як натхнення, але пишіть власні унікальні факти!',
     
     // Waiting room
     'waiting.title': '🏠 Очікування учасників',
@@ -285,6 +287,7 @@ const translations: Translations = {
     'facts.done': '✅ Готово!',
     'facts.error': 'Введите минимум 3 факта!',
     'facts.submitError': 'Ошибка при отправке фактов',
+    'facts.inspiration': 'Используйте эти примеры как вдохновение, но пишите свои уникальные факты!',
     
     // Waiting room
     'waiting.title': '🏠 Ожидание участников',
@@ -369,6 +372,124 @@ const translations: Translations = {
     'analytics.gamesThisWeek': 'Игр На Этой Неделе',
     'analytics.gamesThisMonth': 'Игр В Этом Месяце',
     'analytics.noData': 'Данные аналитики пока недоступны',
+  },
+  
+  de: {
+    // Welcome page
+    'welcome.title': '🎯 Errate Wer',
+    'welcome.subtitle': 'Spiel zum Erraten von Fakten',
+    'welcome.host': '👑 Spiel erstellen',
+    'welcome.join': '🚪 Beitritt',
+    'welcome.rules': '📋 Regeln',
+    'welcome.hostName': 'Ihr Name (Gastgeber):',
+    'welcome.namePlaceholder': 'Geben Sie Ihren Namen ein',
+    'welcome.tokenPlaceholder': 'Geben Sie den Spielcode ein',
+    'welcome.startGame': 'Spiel starten',
+    'welcome.joinGame': 'Beitreten',
+    'welcome.next': 'Weiter',
+    'welcome.back': '← Zurück',
+    'welcome.playerName': 'Ihr Name:',
+    'welcome.gameCode': 'Spielcode:',
+    'welcome.enterNameAndCode': 'Geben Sie Namen und Spielcode ein!',
+    'welcome.joinError': 'Fehler beim Beitritt. Überprüfen Sie den Code und versuchen Sie es erneut.',
+    
+    // Game creation
+    'create.title': '⏳ Spiel erstellen...',
+    'create.error': 'Fehler beim Erstellen des Spiels',
+    
+    // Submit facts
+    'facts.title': '📝 Geben Sie 3 Fakten über sich ein',
+    'facts.placeholder': '💡 Fakt',
+    'facts.send': '📨 Senden',
+    'facts.sending': '📤 Senden...',
+    'facts.done': '✅ Fertig!',
+    'facts.error': 'Geben Sie mindestens 3 Fakten ein!',
+    'facts.submitError': 'Fehler beim Senden der Fakten',
+    'facts.inspiration': 'Nutzen Sie diese Beispiele als Inspiration, aber schreiben Sie Ihre eigenen einzigartigen Fakten!',
+    
+    // Waiting room
+    'waiting.title': '🏠 Warten auf Teilnehmer',
+    'waiting.code': '🔑 Spielcode:',
+    'waiting.ready': 'Bereit',
+    'waiting.notReady': 'Fakten eintragen',
+    'waiting.you': 'Sie',
+    'waiting.startGame': '🚦 Spiel starten',
+    
+    // Game round
+    'round.title': 'Erraten Sie, wer geschrieben hat:',
+    'round.questionsLeft': '📝 Fragen übrig:',
+    'round.addFact': '➕ Fakt über sich hinzufügen',
+    'round.addFactTitle': '➕ Neuen Fakt über sich hinzufügen:',
+    'round.addFactPlaceholder': 'Geben Sie einen interessanten Fakt über sich ein...',
+    'round.add': '✅ Hinzufügen',
+    'round.adding': '💾 Hinzufügen...',
+    'round.cancel': '❌ Abbrechen',
+    'round.whoGuessed': '🎯 Wer hat richtig erraten?',
+    'round.selectPlayer': 'Spieler auswählen',
+    'round.wrongAttempts': '❌ Wie viele falsche Versuche?',
+    'round.saveResult': '✅ Ergebnis speichern',
+    'round.saving': '💾 Speichern...',
+    'round.waitingHost': 'Warten auf Entscheidung des Gastgebers...',
+    'round.factAdded': 'Fakt hinzugefügt! Die Anzahl der Fragen wird für alle aktualisiert.',
+    'round.addFactError': 'Fehler beim Hinzufügen des Faktums',
+    'round.enterFact': 'Fakt eingeben!',
+    'round.resultSaved': 'Ergebnis gespeichert!',
+    'round.resultError': 'Fehler beim Senden des Ergebnisses',
+    'round.dataError': 'Fehler beim Laden der Spiel-Daten',
+    'round.roundsComplete': '🎉 Runden abgeschlossen! 🎉',
+    'round.goingToResults': 'Zu den Ergebnissen...',
+    
+    // End screen
+    'end.title': '🎉 Spiel beendet! 🎉',
+    'end.thanks': '🥳 Danke für das Spiel! 🥳',
+    'end.newGame': '🎮 Neues Spiel starten',
+    'end.loading': 'Statistik laden...',
+    'end.miniStats': '🏆 Mini-Statistik',
+    'end.noStats': 'Statistik wird nach den ersten Runden angezeigt',
+    'end.bestDetective': '🔍 Bester Detektiv:',
+    'end.hardestFact': '🧩 Schwierigster Fakt:',
+    'end.mostWrong': '🤔 Meiste Fehler:',
+    'end.mostMysterious': '🎭 Rätselhaftester:',
+    'end.laziest': '😴 Faulste:',
+    
+    // Rules
+    'rules.title': '📋 Regeln des Spiels "Errate Wer"',
+    'rules.goal': '🎯 Ziel',
+    'rules.goalText': 'Erraten Sie, wer von den Teilnehmern welchen Fakt über sich geschrieben hat, und sammeln Sie die meisten Punkte.',
+    'rules.participants': '👥 Teilnehmer',
+    'rules.host': '👑 Gastgeber: Erstellt das Spiel, verwaltet die Runden, vergibt Punkte',
+    'rules.players': '🧑 Spieler: Geben Fakten ein, versuchen die Autoren zu erraten',
+    'rules.gameplay': '🎮 Spielablauf',
+    'rules.step1': 'Jeder Teilnehmer gibt 3 interessante Fakten über sich ein',
+    'rules.step2': 'Der Gastgeber liest die Fakten einzeln vor',
+    'rules.step3': 'Die Spieler versuchen die Autoren zu erraten',
+    'rules.step4': 'Der Gastgeber vergibt Punkte und geht zur nächsten Frage über',
+    'rules.scoring': '🏆 Punktevergabe',
+    'rules.correct': '✅ Richtiges Erraten: +3 Punkte',
+    'rules.author': '📝 Der Autor des Faktums erhält Punkte = Anzahl der falschen Versuche',
+    'rules.winner': '🥇 Gewinner: Spieler mit den meisten Punkten',
+    'rules.backToMenu': '🏠 Zurück zum Menü',
+    
+    // Scoreboard
+    'scoreboard.title': '🏆 Punkte-Tabelle',
+    'scoreboard.endGame': '🏁 Spiel beenden',
+    
+    // Common
+    'common.points': 'Punkte',
+    'common.loading': 'Laden...',
+    'common.error': 'Fehler',
+    'common.backToMenu': 'Zurück zum Menü',
+    
+    // Analytics
+    'analytics.title': '📊 Spiel-Analyse',
+    'analytics.totalGames': 'Insgesamt erstellte Spiele',
+    'analytics.totalPlayers': 'Insgesamt Spieler',
+    'analytics.avgPlayersPerGame': 'Durchschnittliche Anzahl Spieler pro Spiel',
+    'analytics.avgGameDuration': 'Durchschnittliche Spiel-Dauer',
+    'analytics.mostActiveDay': 'Aktivster Tag',
+    'analytics.gamesThisWeek': 'Spiele diese Woche',
+    'analytics.gamesThisMonth': 'Spiele diesen Monat',
+    'analytics.noData': 'Keine Analyse-Daten verfügbar',
   }
 };
 
@@ -382,7 +503,7 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
   useEffect(() => {
     // Загружаем сохраненный язык из localStorage
     const savedLanguage = localStorage.getItem('language') as Language;
-    if (savedLanguage && ['en', 'uk', 'ru'].includes(savedLanguage)) {
+    if (savedLanguage && ['en', 'uk', 'ru', 'de'].includes(savedLanguage)) {
       setLanguageState(savedLanguage);
     }
   }, []);
