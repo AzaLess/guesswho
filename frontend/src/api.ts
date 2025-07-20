@@ -37,6 +37,11 @@ export const revealStory = async (fact_id: number, story: string) => {
   return res.data;
 };
 
+export const kickPlayer = async (token: string, player_id: number, requester_id: number) => {
+  const res = await axios.post(API_BASE + "kick/", { token, player_id, requester_id });
+  return res.data;
+};
+
 export const endGame = async (token: string) => {
   const res = await axios.post(API_BASE + "end/", { token });
   return res.data;
@@ -49,5 +54,10 @@ export const getStats = async (token: string) => {
 
 export const startGame = async (token: string) => {
   const res = await axios.post(API_BASE + "start/", { token });
+  return res.data;
+};
+
+export const setCurrentFact = async (token: string, fact_id: number | null, player_id: number) => {
+  const res = await axios.post(API_BASE + "set_current_fact/", { token, fact_id, player_id });
   return res.data;
 };

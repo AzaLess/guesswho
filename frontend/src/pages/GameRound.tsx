@@ -1,12 +1,23 @@
 import { useEffect, useState } from "react";
-import { getGameState, sendGuessEvent, submitFact } from "../api";
+import { getGameState, sendGuessEvent, submitFact, setCurrentFact } from "../api";
 import { useNavigate } from "react-router-dom";
 import ToastContainer from "../components/ToastContainer";
 import { useToast } from "../hooks/useToast";
+import { useLanguage } from "../contexts/LanguageContext";
+import BackToMenuButton from "../components/BackToMenuButton";
 
 export default function GameRound() {
   const token = localStorage.getItem("token") || "";
-  const player = JSON.parse(localStorage.getItem("player") || "{}");
+  const getPlayerFromStorage = () => {
+    try {
+      const playerData = localStorage.getItem("player");
+      return playerData ? JSON.parse(playerData) : {};
+    } catch (error) {
+      console.error('Error parsing player data from localStorage:', error);
+      return {};
+    }
+  };
+  const player = getPlayerFromStorage();
   const [facts, setFacts] = useState<any[]>([]);
   const [players, setPlayers] = useState<any[]>([]);
   const [scores, setScores] = useState<any[]>([]);
@@ -23,6 +34,7 @@ export default function GameRound() {
   
   const navigate = useNavigate();
   const { toasts, showSuccess, showError, removeToast } = useToast();
+  const { t } = useLanguage();
 
   useEffect(() => {
     let prevFactTimestamp: string | null = null;
@@ -52,13 +64,27 @@ export default function GameRound() {
         // Обновляем localStorage
         localStorage.setItem('lastFactCount', unguessed.length.toString());
         
+        // НОВАЯ ЛОГИКА: Текущий вопрос берем ТОЛЬКО от сервера
+        if (data.current_fact) {
+          console.log("GameRound: Получен текущий факт от сервера:", data.current_fact);
+          setCurrent(data.current_fact);
+        } else {
+          console.log("GameRound: Сервер не вернул текущий факт");
+          // Если ведущий и нет текущего факта - выбираем первый случайный
+          if (player.is_host && unguessed.length > 0 && !current) {
+            console.log("GameRound: Ведущий выбирает новый случайный факт");
+            const randomIndex = Math.floor(Math.random() * unguessed.length);
+            const newCurrent = unguessed[randomIndex];
+            setCurrent(newCurrent);
+            // Устанавливаем его на сервере
+            await setCurrentFact(token, newCurrent.id, player.id);
+          } else if (!player.is_host) {
+            // Участники ждут, пока ведущий выберет вопрос
+            setCurrent(null);
+          }
+        }
         
         setFacts(unguessed);
-        // НЕ меняем current факт при polling - только если он не установлен
-        if (!current && unguessed.length > 0) {
-          console.log("GameRound: Устанавливаем первый факт, так как current пустой");
-          setCurrent(unguessed[0]);
-        }
         setPlayers(data.players);
         
         // Обновляем таблицу очков
@@ -98,18 +124,38 @@ export default function GameRound() {
       const unguessed = data.facts.filter((f: any) => !f.guessed);
       setFacts(unguessed);
       
-      // Выбираем случайный факт из неотвеченных
-      if (unguessed.length > 0) {
-        const randomIndex = Math.floor(Math.random() * unguessed.length);
-        setCurrent(unguessed[randomIndex]);
+      // НОВАЯ ЛОГИКА: Только ведущий выбирает и устанавливает новый текущий факт
+      if (player.is_host) {
+        if (unguessed.length > 0) {
+          console.log("GameRound: Ведущий выбирает следующий случайный факт");
+          const randomIndex = Math.floor(Math.random() * unguessed.length);
+          const newCurrent = unguessed[randomIndex];
+          setCurrent(newCurrent);
+          // Устанавливаем новый текущий факт на сервере
+          await setCurrentFact(token, newCurrent.id, player.id);
+        } else {
+          console.log("GameRound: Нет больше неотвеченных фактов");
+          setCurrent(null);
+          // Сбрасываем текущий факт на сервере
+          await setCurrentFact(token, null, player.id);
+        }
       } else {
-        setCurrent(null);
+        // Участники просто обновляют свое состояние - текущий факт придет от сервера при следующем polling
+        console.log("GameRound: Участник ждет нового факта от ведущего");
       }
     } catch (error) {
       console.error("Error updating game data:", error);
-      // Если ошибка, пытаемся выбрать следующий из текущего списка
-      const idx = facts.indexOf(current);
-      setCurrent(facts[idx + 1] || null);
+      // Если ошибка, пытаемся выбрать следующий из текущего списка (только для ведущего)
+      if (player.is_host) {
+        const idx = facts.indexOf(current);
+        const nextFact = facts[idx + 1] || null;
+        setCurrent(nextFact);
+        if (nextFact) {
+          await setCurrentFact(token, nextFact.id, player.id);
+        } else {
+          await setCurrentFact(token, null, player.id);
+        }
+      }
     }
   };
 
@@ -198,17 +244,17 @@ export default function GameRound() {
   const canPickGuesser = isHost && players.length > 0;
   const guesserSelect = canPickGuesser ? (
     <>
-      <label>🎯 Кто угадал правильно?</label>
+      <label>{t('round.whoGuessed')}</label>
       <select value={correctGuesser} onChange={e => setCorrectGuesser(e.target.value)}>
-        <option value="">Выберите игрока</option>
+        <option value="">{t('round.selectPlayer')}</option>
         {players.filter((p: any) => p.id !== current.author).map((p: any) => (
           <option key={p.id} value={p.id}>{p.name}</option>
         ))}
       </select>
-      <label>❌ Сколько было неверных попыток?</label>
+      <label>{t('round.wrongAttempts')}</label>
       <input type="text" value={wrongGuesses} onChange={e => setWrongGuesses(e.target.value)} />
       <button onClick={handleResult} disabled={loading || !correctGuesser}>
-        {loading ? "💾 Сохраняю..." : "✅ Сохранить результат"}
+        {loading ? t('round.saving') : t('round.saveResult')}
       </button>
       {result && <div className="center">🎉 {result}</div>}
     </>
@@ -216,13 +262,14 @@ export default function GameRound() {
 
   return (
     <div className="app-container">
+      <BackToMenuButton />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <h2>Угадай, кто написал:</h2>
+      <h2>{t('round.title')}</h2>
       <div style={{ margin: "20px 0", fontSize: "1.2em", color: "#7ed957" }}>
         "{current.text}"
       </div>
       <div style={{ marginBottom: 10 }}>
-        📝 Осталось вопросов: 
+        {t('round.questionsLeft')} 
         <b style={{ 
           color: showNewFactCount ? '#4CAF50' : 'inherit',
           transition: 'color 0.3s ease'
@@ -238,16 +285,16 @@ export default function GameRound() {
             onClick={() => setShowAddFact(true)}
             style={{ background: "#4CAF50", color: "white", border: "none", padding: "8px 16px", borderRadius: "4px", cursor: "pointer" }}
           >
-            ➕ Добавить факт о себе
+            {t('round.addFact')}
           </button>
         ) : (
           <div>
-            <h4>➕ Добавить новый факт о себе:</h4>
+            <h4>{t('round.addFactTitle')}</h4>
             <input 
               type="text" 
               value={newFact} 
               onChange={(e) => setNewFact(e.target.value)}
-              placeholder="Введите интересный факт о себе..."
+              placeholder={t('round.addFactPlaceholder')}
               style={{ width: "100%", padding: "8px", marginBottom: "10px", borderRadius: "4px", border: "1px solid #ccc" }}
             />
             <div>
@@ -256,20 +303,20 @@ export default function GameRound() {
                 disabled={addingFact || !newFact.trim()}
                 style={{ background: "#4CAF50", color: "white", border: "none", padding: "8px 16px", borderRadius: "4px", cursor: "pointer", marginRight: "10px" }}
               >
-                {addingFact ? "💾 Добавляю..." : "✅ Добавить"}
+                {addingFact ? t('round.adding') : t('round.add')}
               </button>
               <button 
                 onClick={() => { setShowAddFact(false); setNewFact(""); }}
                 style={{ background: "#f44336", color: "white", border: "none", padding: "8px 16px", borderRadius: "4px", cursor: "pointer" }}
               >
-                ❌ Отмена
+                {t('round.cancel')}
               </button>
             </div>
           </div>
         )}
       </div>
       
-      {isHost ? guesserSelect : <div style={{ margin: "10px 0" }}>Ожидаем решения ведущего...</div>}
+      {isHost ? guesserSelect : <div style={{ margin: "10px 0" }}>{t('round.waitingHost')}</div>}
       {scoreboard}
     </div>
   );

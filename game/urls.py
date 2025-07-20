@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     GameCreateView, JoinGameView, FactSubmitView, HostGuessEventView, 
-    ScoreboardView, GameStateView, RevealStoryView, EndGameView, StatsView, StartGameView
+    ScoreboardView, GameStateView, RevealStoryView, EndGameView, StatsView, StartGameView, KickPlayerView, AnalyticsView, SetCurrentFactView
 )
 
 urlpatterns = [
@@ -15,4 +15,7 @@ urlpatterns = [
     path('end/', EndGameView.as_view(), name='end-game'),
     path('stats/<str:token>/', StatsView.as_view(), name='game-stats'),
     path('start/', StartGameView.as_view(), name='game-start'),
+    path('kick/', KickPlayerView.as_view(), name='kick-player'),
+    path('analytics/', AnalyticsView.as_view(), name='analytics'),
+    path('set_current_fact/', SetCurrentFactView.as_view(), name='set-current-fact'),
 ]

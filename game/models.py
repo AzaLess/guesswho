@@ -7,6 +7,7 @@ class Game(models.Model):
     ended = models.BooleanField(default=False)
     started = models.BooleanField(default=False)
     last_fact_added = models.DateTimeField(null=True, blank=True)
+    current_fact = models.ForeignKey('Fact', null=True, blank=True, on_delete=models.SET_NULL, related_name='current_in_games')
 
     def __str__(self):
         return f"Game {self.token}"
@@ -16,6 +17,7 @@ class Player(models.Model):
     name = models.CharField(max_length=64)
     is_host = models.BooleanField(default=False)
     emoji = models.CharField(max_length=4, blank=True, null=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} ({'Host' if self.is_host else 'Player'})"

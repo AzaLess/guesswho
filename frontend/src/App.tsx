@@ -8,22 +8,27 @@ import GameRound from "./pages/GameRound";
 import Scoreboard from "./pages/Scoreboard";
 import EndScreen from "./pages/EndScreen";
 import Rules from "./pages/Rules";
+import Analytics from "./pages/Analytics";
+import { LanguageProvider } from "./contexts/LanguageContext";
 import "./styles.css";
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Welcome />} />
-        <Route path="/create" element={<CreateGame />} />
-        <Route path="/join" element={<JoinGame />} />
-        <Route path="/waiting" element={<WaitingRoom />} />
-        <Route path="/facts" element={<SubmitFacts />} />
-        <Route path="/round" element={<GameRound />} />
-        <Route path="/scoreboard" element={<Scoreboard />} />
-        <Route path="/end" element={<EndScreen />} />
-        <Route path="/rules" element={<Rules />} />
-      </Routes>
-    </BrowserRouter>
+    <LanguageProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Welcome />} />
+          <Route path="/create" element={<CreateGame />} />
+          <Route path="/join" element={<JoinGame />} />
+          <Route path="/waiting" element={<WaitingRoom />} />
+          <Route path="/facts" element={<SubmitFacts />} />
+          <Route path="/round" element={<GameRound />} />
+          <Route path="/scoreboard" element={<Scoreboard />} />
+          <Route path="/end" element={<EndScreen />} />
+          <Route path="/rules" element={<Rules />} />
+          <Route path="/secret-analytics" element={<Analytics />} />
+        </Routes>
+      </BrowserRouter>
+    </LanguageProvider>
   );
 }

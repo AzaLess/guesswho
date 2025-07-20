@@ -3,10 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { createGame } from "../api";
 import ToastContainer from "../components/ToastContainer";
 import { useToast } from "../hooks/useToast";
+import { useLanguage } from "../contexts/LanguageContext";
 
 export default function CreateGame() {
   const navigate = useNavigate();
   const { toasts, showError, removeToast } = useToast();
+  const { t } = useLanguage();
 
   useEffect(() => {
     let isMounted = true;
@@ -15,18 +17,15 @@ export default function CreateGame() {
         const name = localStorage.getItem("name") || "Ведущий";
         const game = await createGame(name);
         if (isMounted) {
-          // Сохраняем токен игры
+          // Сохраняем токен игры и данные игрока
           localStorage.setItem("token", game.token);
-          // Получаем данные ведущего через getGameState
-          const state = await fetch(`/api/game/state/${game.token}/`).then(r => r.json());
-          const hostPlayer = state.players.find((p: any) => p.is_host);
-          if (hostPlayer) {
-            localStorage.setItem("player", JSON.stringify(hostPlayer));
+          if (game.player) {
+            localStorage.setItem("player", JSON.stringify(game.player));
           }
           navigate("/facts", { state: { token: game.token, isHost: true } });
         }
       } catch {
-        showError("Ошибка при создании игры");
+        showError(t('create.error'));
       }
     };
     create();
@@ -36,7 +35,7 @@ export default function CreateGame() {
   return (
     <div className="app-container">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <h2>⏳ Создание игры...</h2>
+      <h2>{t('create.title')}</h2>
     </div>
   );
 }
