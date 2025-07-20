@@ -36,7 +36,7 @@ export default function Analytics() {
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/game/analytics/');
+        const response = await fetch('/api/game/analytics/');
         if (!response.ok) throw new Error('Failed to fetch analytics');
         const analyticsData = await response.json();
         setData(analyticsData);
