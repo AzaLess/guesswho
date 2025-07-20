@@ -97,8 +97,9 @@ export default function SubmitFacts() {
           display: 'grid', 
           gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
           gap: '8px',
-          fontSize: '14px',
-          color: '#212529',
+          fontSize: '15px',
+          color: '#000000',
+          fontWeight: '600',
           lineHeight: '1.4'
         }}>
           <div>{t('rules.example1')}</div>
