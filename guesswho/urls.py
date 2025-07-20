@@ -23,8 +23,8 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/game/', include('game.urls')),
-    # Все пути, кроме api и admin, отдаём index.html для SPA
-    re_path(r'^(?!api/|admin/).*$', TemplateView.as_view(template_name="index.html")),
+    # Все пути, кроме api, admin и static, отдаём index.html для SPA
+    re_path(r'^(?!api/|admin/|static/).*$', TemplateView.as_view(template_name="index.html")),
 ]
 
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
