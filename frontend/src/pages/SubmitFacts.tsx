@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { submitFact } from "../api";
+import ToastContainer from "../components/ToastContainer";
+import { useToast } from "../hooks/useToast";
 
 export default function SubmitFacts() {
   const player = JSON.parse(localStorage.getItem("player") || "{}");
@@ -8,6 +10,7 @@ export default function SubmitFacts() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const navigate = useNavigate();
+  const { toasts, showError, removeToast } = useToast();
 
   const handleChange = (i: number, value: string) => {
     const arr = [...facts];
@@ -16,7 +19,7 @@ export default function SubmitFacts() {
   };
 
   const handleSubmit = async () => {
-    if (facts.some(f => !f.trim())) return alert("Введите минимум 3 факта!");
+    if (facts.some(f => !f.trim())) return showError("Введите минимум 3 факта!");
     setLoading(true);
     try {
       for (let fact of facts) {
@@ -25,13 +28,14 @@ export default function SubmitFacts() {
       setDone(true);
       navigate("/waiting");
     } catch {
-      alert("Ошибка при отправке фактов");
+      showError("Ошибка при отправке фактов");
     }
     setLoading(false);
   };
 
   return (
     <div className="app-container">
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
       <h2>📝 Введите 3 факта о себе</h2>
       {facts.map((fact, i) => (
         <input

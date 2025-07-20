@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ToastContainer from "../components/ToastContainer";
+import { useToast } from "../hooks/useToast";
 
 
 export default function Welcome() {
@@ -7,10 +9,11 @@ export default function Welcome() {
   const [role, setRole] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [token, setToken] = useState("");
+  const { toasts, showError, removeToast } = useToast();
 
   const handleStart = () => {
     if (role === "host") {
-      if (!name.trim()) return alert("Введите имя!");
+      if (!name.trim()) return showError("Введите имя!");
       // Очищаем все данные предыдущей игры
       localStorage.clear();
       localStorage.setItem("role", "host");
@@ -20,7 +23,7 @@ export default function Welcome() {
   };
 
   const handleJoin = async () => {
-    if (!name.trim() || !token.trim()) return alert("Введите имя и код комнаты!");
+    if (!name.trim() || !token.trim()) return showError("Введите имя и код комнаты!");
     // Очищаем все данные предыдущей игры
     localStorage.clear();
     localStorage.setItem("role", "player");
@@ -37,18 +40,35 @@ export default function Welcome() {
       localStorage.setItem("player", JSON.stringify(player));
       window.location.href = "/facts";
     } catch {
-      alert("Ошибка входа. Проверьте код и попробуйте снова.");
+      showError("Ошибка входа. Проверьте код и попробуйте снова.");
     }
   };
 
 
   return (
     <div className="app-container">
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
       <h1>🤔 Угадай кто? 🎉</h1>
       {!role && (
         <div className="role-select">
           <button onClick={() => setRole("host")}>👑 Я ведущий</button>
           <button onClick={() => setRole("player")}>🙋 Я участник</button>
+          <div style={{ marginTop: '20px' }}>
+            <button 
+              onClick={() => navigate("/rules")}
+              style={{ 
+                background: "#2196F3", 
+                color: "white", 
+                border: "none", 
+                padding: "10px 20px", 
+                borderRadius: "6px", 
+                cursor: "pointer",
+                fontSize: "14px"
+              }}
+            >
+              📋 Правила
+            </button>
+          </div>
         </div>
       )}
       {role === "player" && (

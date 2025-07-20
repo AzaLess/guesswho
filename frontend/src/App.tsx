@@ -7,6 +7,7 @@ import SubmitFacts from "./pages/SubmitFacts";
 import GameRound from "./pages/GameRound";
 import Scoreboard from "./pages/Scoreboard";
 import EndScreen from "./pages/EndScreen";
+import Rules from "./pages/Rules";
 import "./styles.css";
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/round" element={<GameRound />} />
         <Route path="/scoreboard" element={<Scoreboard />} />
         <Route path="/end" element={<EndScreen />} />
+        <Route path="/rules" element={<Rules />} />
       </Routes>
     </BrowserRouter>
   );

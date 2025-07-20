@@ -12,7 +12,7 @@ export default function WaitingRoom() {
   const [allFactsReady, setAllFactsReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
+  const [facts, setFacts] = useState<any[]>([]);
 
   // Polling for players in room
   const [gameStarted, setGameStarted] = useState(false);
@@ -24,6 +24,7 @@ export default function WaitingRoom() {
         const state = await getGameState(token);
         setPlayers(state.players || []);
         setGameStarted(!!state.started);
+        setFacts(state.facts || []);
         // DEBUG: показываем состояние игры
         console.log("WaitingRoom polling:", { started: state.started, role, name });
         // Проверяем, у всех ли игроков есть 3 факта
@@ -62,12 +63,28 @@ export default function WaitingRoom() {
       <h2>⏳ Ожидание участников</h2>
       <p>🔑 Код комнаты: <b>{token}</b></p>
       <div className="players-list">
-        {players.map((p: any) => (
-          <div key={p.id} className="player-item">
-            <span style={{fontSize: 24}}>{p.emoji || "🙂"}</span> {p.name}
-            {p.is_host && p.name === name ? " 👑 (Вы)" : p.is_host ? " 👑" : ""}
-          </div>
-        ))}
+        {players.map((p: any) => {
+          // Определяем статус игрока на основе количества фактов
+          const playerFactsCount = facts.filter((f: any) => f.author === p.id).length;
+          const isReady = playerFactsCount >= 3;
+          const statusEmoji = isReady ? "✅" : "⏳";
+          const statusText = isReady ? "Готов" : "Заполняет";
+          const isCurrentUser = p.name === name;
+          
+          return (
+            <div key={p.id} className="player-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px', margin: '4px 0', background: '#f5f5f5', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{fontSize: 24}}>{p.emoji || "🙂"}</span>
+                <span>{p.name}</span>
+                {p.is_host && isCurrentUser ? " 👑 (Вы)" : p.is_host ? " 👑" : isCurrentUser ? " (Вы)" : ""}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '14px' }}>
+                <span>{statusEmoji}</span>
+                <span style={{ color: isReady ? '#4CAF50' : '#FF9800' }}>{statusText}</span>
+              </div>
+            </div>
+          );
+        })}
       </div>
       {role === "host" && players.length >= 2 && !gameStarted && (
         <button className="primary" onClick={handleStart} disabled={!allFactsReady || loading}>

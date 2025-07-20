@@ -80,6 +80,9 @@ class FactSubmitView(views.APIView):
         if not player:
             return Response({'error': 'Invalid player.'}, status=400)
         fact = Fact.objects.create(game=player.game, author=player, text=text)
+        from django.utils import timezone
+        player.game.last_fact_added = timezone.now()
+        player.game.save(update_fields=["last_fact_added"])
         return Response(FactSerializer(fact).data)
 
 class HostGuessEventView(views.APIView):
@@ -137,7 +140,8 @@ class GameStateView(views.APIView):
             'players': PlayerSerializer(players, many=True).data,
             'facts': FactSerializer(facts, many=True).data,
             'started': game.started,
-            'ended': game.ended
+            'ended': game.ended,
+            'last_fact_added': game.last_fact_added.isoformat() if game.last_fact_added else None
         })
 
 class RevealStoryView(views.APIView):
@@ -174,11 +178,35 @@ class StatsView(views.APIView):
                 if p.id != e.correct_guesser_id and p.id != e.fact.author_id:
                     wrongs[p.id] += e.wrong_guess_count
         most_wrong_id = wrongs.most_common(1)[0][0] if wrongs else None
+        
+        # 4. Самый загадочный (чьи факты набрали больше всего баллов)
+        author_points = Counter()
+        for e in events:
+            author_points[e.fact.author_id] += e.wrong_guess_count
+        most_mysterious_id = author_points.most_common(1)[0][0] if author_points else None
+        
+        # 5. Ленивый (чьи факты угадывали быстрее всего - меньше всего ошибок)
+        author_wrongs = Counter()
+        author_facts_count = Counter()
+        for e in events:
+            author_wrongs[e.fact.author_id] += e.wrong_guess_count
+            author_facts_count[e.fact.author_id] += 1
+        
+        # Считаем средние ошибки на факт для каждого автора
+        avg_wrongs = {}
+        for author_id in author_facts_count:
+            if author_facts_count[author_id] > 0:
+                avg_wrongs[author_id] = author_wrongs[author_id] / author_facts_count[author_id]
+        
+        laziest_id = min(avg_wrongs.keys(), key=lambda x: avg_wrongs[x]) if avg_wrongs else None
+        
         return Response({
             'best_guesser': next((p.name for p in players if p.id == best_guesser_id), None),
             'hardest_fact_author': hardest_fact_author,
             'hardest_fact_text': hardest_fact_text,
             'most_wrong': next((p.name for p in players if p.id == most_wrong_id), None),
+            'most_mysterious': next((p.name for p in players if p.id == most_mysterious_id), None),
+            'laziest': next((p.name for p in players if p.id == laziest_id), None),
         })
 
 class EndGameView(views.APIView):

@@ -1,9 +1,12 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { createGame } from "../api";
+import ToastContainer from "../components/ToastContainer";
+import { useToast } from "../hooks/useToast";
 
 export default function CreateGame() {
   const navigate = useNavigate();
+  const { toasts, showError, removeToast } = useToast();
 
   useEffect(() => {
     let isMounted = true;
@@ -23,7 +26,7 @@ export default function CreateGame() {
           navigate("/facts", { state: { token: game.token, isHost: true } });
         }
       } catch {
-        alert("Ошибка при создании игры");
+        showError("Ошибка при создании игры");
       }
     };
     create();
@@ -32,6 +35,7 @@ export default function CreateGame() {
 
   return (
     <div className="app-container">
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
       <h2>⏳ Создание игры...</h2>
     </div>
   );

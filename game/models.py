@@ -6,6 +6,7 @@ class Game(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     ended = models.BooleanField(default=False)
     started = models.BooleanField(default=False)
+    last_fact_added = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"Game {self.token}"

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { getGameState, sendGuessEvent, submitFact } from "../api";
 import { useNavigate } from "react-router-dom";
+import ToastContainer from "../components/ToastContainer";
+import { useToast } from "../hooks/useToast";
 
 export default function GameRound() {
   const token = localStorage.getItem("token") || "";
@@ -9,7 +11,7 @@ export default function GameRound() {
   const [players, setPlayers] = useState<any[]>([]);
   const [scores, setScores] = useState<any[]>([]);
   const [current, setCurrent] = useState<any | null>(null);
-  const [wrongGuesses, setWrongGuesses] = useState(0);
+  const [wrongGuesses, setWrongGuesses] = useState("");
   const [correctGuesser, setCorrectGuesser] = useState("");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,9 +19,13 @@ export default function GameRound() {
   const [showAddFact, setShowAddFact] = useState(false);
   const [newFact, setNewFact] = useState("");
   const [addingFact, setAddingFact] = useState(false);
+  const [showNewFactCount, setShowNewFactCount] = useState(false);
+  const [previousFactsCount, setPreviousFactsCount] = useState(0);
   const navigate = useNavigate();
+  const { toasts, showSuccess, showError, showInfo, removeToast } = useToast();
 
   useEffect(() => {
+    let prevFactTimestamp: string | null = null;
     const loadGameData = async () => {
       try {
         console.log("GameRound: Loading game state for player:", player);
@@ -28,9 +34,28 @@ export default function GameRound() {
         const unguessed = data.facts.filter((f: any) => !f.guessed);
         console.log("GameRound: All facts:", data.facts);
         console.log("GameRound: Unguessed facts:", unguessed);
-        console.log("GameRound: Current fact will be set to:", unguessed[0] || null);
+        
+        // Проверяем, увеличилось ли количество фактов (кто-то добавил новый)
+        console.log(`GameRound: Проверка фактов: текущие=${unguessed.length}, предыдущие=${previousFactsCount}`);
+        
+        // Синхронизируем анимацию +1 по серверному timestamp
+        const factTimestamp = data.last_fact_added;
+        if (factTimestamp && factTimestamp !== prevFactTimestamp) {
+          setShowNewFactCount(true);
+          setTimeout(() => setShowNewFactCount(false), 3000);
+          prevFactTimestamp = factTimestamp;
+        }
+        
+        // Обновляем localStorage
+        localStorage.setItem('lastFactCount', unguessed.length.toString());
+        setPreviousFactsCount(unguessed.length);
+        
         setFacts(unguessed);
-        setCurrent(unguessed[0] || null);
+        // НЕ меняем current факт при polling - только если он не установлен
+        if (!current && unguessed.length > 0) {
+          console.log("GameRound: Устанавливаем первый факт, так как current пустой");
+          setCurrent(unguessed[0]);
+        }
         setPlayers(data.players);
         
         // Обновляем таблицу очков
@@ -41,6 +66,7 @@ export default function GameRound() {
         setDataLoaded(true);
       } catch (error) {
         console.error("Error loading game data:", error);
+        showError("Ошибка загрузки игровых данных");
         setDataLoaded(true); // Даже при ошибке отмечаем как загруженное
       }
     };
@@ -58,28 +84,34 @@ export default function GameRound() {
   }, [token, player.id, player.is_host]);
 
   const handleNext = async () => {
-    const idx = facts.indexOf(current);
-    setCurrent(facts[idx + 1] || null);
-    setWrongGuesses(0);
+    // Сбрасываем состояние для следующего вопроса
+    setWrongGuesses("");
     setCorrectGuesser("");
     setResult("");
     
-    // Обновляем данные игры для ведущего, чтобы обновить счетчик
-    if (player.is_host) {
-      try {
-        const data = await getGameState(token);
-        const unguessed = data.facts.filter((f: any) => !f.guessed);
-        setFacts(unguessed);
-        // Обновляем current на основе обновленного списка
-        setCurrent(unguessed[0] || null);
-      } catch (error) {
-        console.error("Error updating game data for host:", error);
+    // Обновляем данные игры для получения актуального списка неотвеченных фактов
+    try {
+      const data = await getGameState(token);
+      const unguessed = data.facts.filter((f: any) => !f.guessed);
+      setFacts(unguessed);
+      
+      // Выбираем случайный факт из неотвеченных
+      if (unguessed.length > 0) {
+        const randomIndex = Math.floor(Math.random() * unguessed.length);
+        setCurrent(unguessed[randomIndex]);
+      } else {
+        setCurrent(null);
       }
+    } catch (error) {
+      console.error("Error updating game data:", error);
+      // Если ошибка, пытаемся выбрать следующий из текущего списка
+      const idx = facts.indexOf(current);
+      setCurrent(facts[idx + 1] || null);
     }
   };
 
   const handleAddFact = async () => {
-    if (!newFact.trim()) return alert("Введите факт!");
+    if (!newFact.trim()) return showError("Введите факт!");
     setAddingFact(true);
     try {
       await submitFact(player.id, newFact);
@@ -89,12 +121,15 @@ export default function GameRound() {
       const data = await getGameState(token);
       const unguessed = data.facts.filter((f: any) => !f.guessed);
       setFacts(unguessed);
-      if (!current) {
-        setCurrent(unguessed[0] || null);
-      }
-      alert("Факт добавлен! У всех обновится количество вопросов.");
+      // НЕ меняем текущий факт при добавлении нового
+      showSuccess("Факт добавлен! У всех обновится количество вопросов.");
+      // Показываем анимацию увеличения счетчика
+      setShowNewFactCount(true);
+      setTimeout(() => setShowNewFactCount(false), 3000);
+      // Сохраняем timestamp добавления факта для синхронизации
+      localStorage.setItem('newFactTimestamp', Date.now().toString());
     } catch {
-      alert("Ошибка при добавлении факта");
+      showError("Ошибка при добавлении факта");
     }
     setAddingFact(false);
   };
@@ -104,14 +139,14 @@ export default function GameRound() {
     setLoading(true);
     try {
       const correctPlayerId = Number(correctGuesser);
-      await sendGuessEvent(current.id, correctPlayerId, wrongGuesses);
+      await sendGuessEvent(current.id, correctPlayerId, Number(wrongGuesses) || 0);
       // Обновляем таблицу очков после сохранения результата
       const updatedScores = await fetch(`/api/game/scoreboard/${token}/`).then(r => r.json());
       setScores(updatedScores);
       setResult("Результат сохранён!");
       setTimeout(handleNext, 1000);
     } catch {
-      alert("Ошибка отправки результата");
+      showError("Ошибка отправки результата");
     }
     setLoading(false);
   };
@@ -168,7 +203,7 @@ export default function GameRound() {
         ))}
       </select>
       <label>❌ Сколько было неверных попыток?</label>
-      <input type="number" value={wrongGuesses} onChange={e => setWrongGuesses(Number(e.target.value))} />
+      <input type="text" value={wrongGuesses} onChange={e => setWrongGuesses(e.target.value)} />
       <button onClick={handleResult} disabled={loading || !correctGuesser}>
         {loading ? "💾 Сохраняю..." : "✅ Сохранить результат"}
       </button>
@@ -178,11 +213,20 @@ export default function GameRound() {
 
   return (
     <div className="app-container">
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
       <h2>Угадай, кто написал:</h2>
       <div style={{ margin: "20px 0", fontSize: "1.2em", color: "#7ed957" }}>
         "{current.text}"
       </div>
-      <div style={{ marginBottom: 10 }}>📝 Осталось вопросов: <b>{questionsLeft}</b></div>
+      <div style={{ marginBottom: 10 }}>
+        📝 Осталось вопросов: 
+        <b style={{ 
+          color: showNewFactCount ? '#4CAF50' : 'inherit',
+          transition: 'color 0.3s ease'
+        }}>
+          {questionsLeft}{showNewFactCount ? ' (+1)' : ''}
+        </b>
+      </div>
       
       {/* Кнопка добавления факта для всех игроков */}
       <div style={{ margin: "15px 0", padding: "10px", border: "1px dashed #ccc", borderRadius: "8px" }}>
@@ -227,4 +271,3 @@ export default function GameRound() {
     </div>
   );
 }
-

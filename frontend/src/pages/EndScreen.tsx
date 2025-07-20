@@ -65,6 +65,8 @@ export default function EndScreen() {
               <li>🔍 <b>Лучший детектив:</b> {stats.best_guesser || '—'}</li>
               <li>🧩 <b>Самый сложный факт:</b> {stats.hardest_fact_text ? `"${stats.hardest_fact_text}" (автор: ${stats.hardest_fact_author})` : '—'}</li>
               <li>🤔 <b>Чаще всех ошибался:</b> {stats.most_wrong || '—'}</li>
+              <li>🎭 <b>Самый загадочный:</b> {stats.most_mysterious || '—'}</li>
+              <li>😴 <b>Ленивый:</b> {stats.laziest || '—'}</li>
             </ul>
           )}
         </div>
