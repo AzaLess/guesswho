@@ -10,15 +10,8 @@ export default defineConfig({
   base: isProd ? '/static/' : '/',
   plugins: [react()],
   server: {
-    middlewareMode: false,
     proxy: {
       '/api': 'http://localhost:8000',
-    },
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        console.log(`[VITE] ${req.method} ${req.url}`)
-        next()
-      })
     }
   }
 })
