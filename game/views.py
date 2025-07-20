@@ -123,7 +123,14 @@ class GameStateView(views.APIView):
         game = Game.objects.filter(token=token).first()
         if not game:
             return Response({'error': 'Game not found.'}, status=404)
-        facts = Fact.objects.filter(game=game)
+        # Используем детерминированную случайность на основе ID игры
+        # чтобы порядок был одинаковым для всех игроков
+        import random
+        facts_list = list(Fact.objects.filter(game=game))
+        # Используем ID игры как seed для стабильной случайности
+        random.seed(game.id)
+        random.shuffle(facts_list)
+        facts = facts_list
         players = Player.objects.filter(game=game)
         return Response({
             'game': GameSerializer(game).data,

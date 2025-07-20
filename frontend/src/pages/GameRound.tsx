@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getGameState, sendGuessEvent } from "../api";
+import { getGameState, sendGuessEvent, submitFact } from "../api";
 import { useNavigate } from "react-router-dom";
 
 export default function GameRound() {
@@ -14,6 +14,9 @@ export default function GameRound() {
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [showAddFact, setShowAddFact] = useState(false);
+  const [newFact, setNewFact] = useState("");
+  const [addingFact, setAddingFact] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -45,11 +48,9 @@ export default function GameRound() {
     // Загружаем данные сразу
     loadGameData();
     
-    // Для участников (не ведущих) добавляем polling каждые 3 секунды
-    let interval: number | null = null;
-    if (!player.is_host) {
-      interval = setInterval(loadGameData, 3000);
-    }
+    // Добавляем polling для всех игроков (и ведущего, и участников)
+    // чтобы все видели обновления в реальном времени
+    const interval = setInterval(loadGameData, 3000);
     
     return () => {
       if (interval) clearInterval(interval);
@@ -75,6 +76,27 @@ export default function GameRound() {
         console.error("Error updating game data for host:", error);
       }
     }
+  };
+
+  const handleAddFact = async () => {
+    if (!newFact.trim()) return alert("Введите факт!");
+    setAddingFact(true);
+    try {
+      await submitFact(player.id, newFact);
+      setNewFact("");
+      setShowAddFact(false);
+      // Обновляем данные игры для всех
+      const data = await getGameState(token);
+      const unguessed = data.facts.filter((f: any) => !f.guessed);
+      setFacts(unguessed);
+      if (!current) {
+        setCurrent(unguessed[0] || null);
+      }
+      alert("Факт добавлен! У всех обновится количество вопросов.");
+    } catch {
+      alert("Ошибка при добавлении факта");
+    }
+    setAddingFact(false);
   };
 
   const handleResult = async () => {
@@ -161,6 +183,45 @@ export default function GameRound() {
         "{current.text}"
       </div>
       <div style={{ marginBottom: 10 }}>📝 Осталось вопросов: <b>{questionsLeft}</b></div>
+      
+      {/* Кнопка добавления факта для всех игроков */}
+      <div style={{ margin: "15px 0", padding: "10px", border: "1px dashed #ccc", borderRadius: "8px" }}>
+        {!showAddFact ? (
+          <button 
+            onClick={() => setShowAddFact(true)}
+            style={{ background: "#4CAF50", color: "white", border: "none", padding: "8px 16px", borderRadius: "4px", cursor: "pointer" }}
+          >
+            ➕ Добавить факт о себе
+          </button>
+        ) : (
+          <div>
+            <h4>➕ Добавить новый факт о себе:</h4>
+            <input 
+              type="text" 
+              value={newFact} 
+              onChange={(e) => setNewFact(e.target.value)}
+              placeholder="Введите интересный факт о себе..."
+              style={{ width: "100%", padding: "8px", marginBottom: "10px", borderRadius: "4px", border: "1px solid #ccc" }}
+            />
+            <div>
+              <button 
+                onClick={handleAddFact} 
+                disabled={addingFact || !newFact.trim()}
+                style={{ background: "#4CAF50", color: "white", border: "none", padding: "8px 16px", borderRadius: "4px", cursor: "pointer", marginRight: "10px" }}
+              >
+                {addingFact ? "💾 Добавляю..." : "✅ Добавить"}
+              </button>
+              <button 
+                onClick={() => { setShowAddFact(false); setNewFact(""); }}
+                style={{ background: "#f44336", color: "white", border: "none", padding: "8px 16px", borderRadius: "4px", cursor: "pointer" }}
+              >
+                ❌ Отмена
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      
       {isHost ? guesserSelect : <div style={{ margin: "10px 0" }}>Ожидаем решения ведущего...</div>}
       {scoreboard}
     </div>

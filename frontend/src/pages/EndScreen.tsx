@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
 import { getScoreboard, endGame, getStats } from "../api";
+import { useNavigate } from "react-router-dom";
 
 export default function EndScreen() {
   const token = localStorage.getItem("token") || "";
   const [scores, setScores] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
+  const navigate = useNavigate();
+
+  const handleNewGame = () => {
+    // Очищаем все данные игры
+    localStorage.clear();
+    // Переходим на главный экран
+    navigate("/");
+  };
 
   useEffect(() => {
     getScoreboard(token).then(setScores);
@@ -24,6 +33,25 @@ export default function EndScreen() {
       </ol>
       <div className="center" style={{ marginTop: 24 }}>
         🥳 Спасибо за игру! 🥳
+      </div>
+      
+      {/* Кнопка для начала новой игры */}
+      <div className="center" style={{ marginTop: 20 }}>
+        <button 
+          onClick={handleNewGame}
+          style={{ 
+            background: "#4CAF50", 
+            color: "white", 
+            border: "none", 
+            padding: "12px 24px", 
+            borderRadius: "8px", 
+            cursor: "pointer", 
+            fontSize: "16px",
+            fontWeight: "bold"
+          }}
+        >
+          🎮 Начать новую игру
+        </button>
       </div>
       {stats && (
         <div className="stats-block" style={{ marginTop: 32, background: '#f6f6fa', borderRadius: 12, padding: 16, color: '#222' }}>
