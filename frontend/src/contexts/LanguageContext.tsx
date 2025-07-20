@@ -469,6 +469,17 @@ const translations: Translations = {
     'rules.author': '📝 Der Autor des Faktums erhält Punkte = Anzahl der falschen Versuche',
     'rules.winner': '🥇 Gewinner: Spieler mit den meisten Punkten',
     'rules.backToMenu': '🏠 Zurück zum Menü',
+    'rules.examples': '💡 Beispiele interessanter Fakten',
+    'rules.example1': 'Ich kann mit den Ohren wackeln und gleichzeitig pfeifen',
+    'rules.example2': 'Ich habe versehentlich eine Berühmtheit angerufen',
+    'rules.example3': 'Ich sammle Steine, die wie Tiere aussehen',
+    'rules.example4': 'Ich kann das Alphabet rückwärts in unter 10 Sekunden aufsagen',
+    'rules.example5': 'Ich habe Angst vor Schmetterlingen, aber liebe Spinnen',
+    'rules.example6': 'Ich kann 7 verschiedene Akzente perfekt imitieren',
+    'rules.example7': 'Ich habe einmal 3 Tage lang nur grünes Essen gegessen',
+    'rules.example8': 'Ich kann jede Münze durch Berührung mit geschlossenen Augen identifizieren',
+    'rules.example9': 'Ich rede im Schlaf, aber nur auf Französisch',
+    'rules.example10': 'Ich habe ein fotografisches Gedächtnis für Telefonnummern',
     
     // Scoreboard
     'scoreboard.title': '🏆 Punkte-Tabelle',
