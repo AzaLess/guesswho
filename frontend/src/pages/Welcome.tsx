@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createGame, joinGame } from "../api";
 import LanguageSelector from "../components/LanguageSelector";
 import { useLanguage } from "../contexts/LanguageContext";
+import SoundToggle from "../components/SoundToggle";
 import ToastContainer from "../components/ToastContainer";
 import { useToast } from "../hooks/useToast";
 
@@ -76,6 +77,7 @@ export default function Welcome() {
   return (
     <div className="app-container">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <SoundToggle />
       <h1>{t('welcome.title')}</h1>
       <LanguageSelector />
       <p>{t('welcome.subtitle')}</p>

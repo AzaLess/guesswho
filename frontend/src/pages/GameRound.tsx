@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { getGameState, sendGuessEvent, submitFact, setCurrentFact } from "../api";
 import { useNavigate } from "react-router-dom";
-import ToastContainer from "../components/ToastContainer";
-import { useToast } from "../hooks/useToast";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useToast } from "../hooks/useToast";
+import ToastContainer from "../components/ToastContainer";
+import SoundToggle from "../components/SoundToggle";
+import { playCorrectAnswer, playWrongAnswer, playGameEnd, playNextRound, playNewFact } from "../utils/sounds";
 import BackToMenuButton from "../components/BackToMenuButton";
 
 export default function GameRound() {
@@ -177,6 +179,8 @@ export default function GameRound() {
       setTimeout(() => setShowNewFactCount(false), 3000);
       // Сохраняем timestamp добавления факта для синхронизации
       localStorage.setItem('newFactTimestamp', Date.now().toString());
+      // 🔊 Звук добавления нового факта
+      playNewFact();
     } catch {
       showError("Ошибка при добавлении факта");
     }
@@ -193,7 +197,14 @@ export default function GameRound() {
       const updatedScores = await fetch(`/api/game/scoreboard/${token}/`).then(r => r.json());
       setScores(updatedScores);
       setResult("Результат сохранён!");
-      setTimeout(handleNext, 1000);
+      // 🔊 Звук правильного ответа при сохранении результата
+      if (correctGuesser) {
+        playCorrectAnswer();
+      }
+      setTimeout(() => {
+        playNextRound(); // 🔊 Звук перехода к следующему раунду
+        handleNext();
+      }, 1000);
     } catch {
       showError("Ошибка отправки результата");
     }
@@ -262,8 +273,9 @@ export default function GameRound() {
 
   return (
     <div className="app-container">
-      <BackToMenuButton />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <SoundToggle />
+      <BackToMenuButton />
       <h2>{t('round.title')}</h2>
       <div style={{ margin: "20px 0", fontSize: "1.2em", color: "#7ed957" }}>
         "{current.text}"

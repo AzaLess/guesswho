@@ -138,6 +138,8 @@ const translations: Translations = {
     'common.loading': 'Loading...',
     'common.error': 'Error',
     'common.backToMenu': 'Back to Menu',
+    'common.soundOn': 'Sound notifications enabled',
+    'common.soundOff': 'Sound notifications disabled',
     
     // Analytics
     'analytics.title': '📊 Game Analytics',
@@ -269,6 +271,8 @@ const translations: Translations = {
     'common.loading': 'Завантаження...',
     'common.error': 'Помилка',
     'common.backToMenu': 'Повернутися в меню',
+    'common.soundOn': 'Звукові сповіщення увімкнено',
+    'common.soundOff': 'Звукові сповіщення вимкнено',
     
     // Analytics
     'analytics.title': '📊 Аналітика Ігор',
@@ -400,6 +404,8 @@ const translations: Translations = {
     'common.loading': 'Загрузка...',
     'common.error': 'Ошибка',
     'common.backToMenu': 'Вернуться в меню',
+    'common.soundOn': 'Звуковые уведомления включены',
+    'common.soundOff': 'Звуковые уведомления выключены',
     
     // Analytics
     'analytics.title': '📊 Аналитика Игр',
@@ -529,6 +535,8 @@ const translations: Translations = {
     'common.loading': 'Laden...',
     'common.error': 'Fehler',
     'common.backToMenu': 'Zurück zum Menü',
+    'common.soundOn': 'Tonbenachrichtigungen aktiviert',
+    'common.soundOff': 'Tonbenachrichtigungen deaktiviert',
     
     // Analytics
     'analytics.title': '📊 Spiel-Analyse',
