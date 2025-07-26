@@ -61,7 +61,7 @@ export default function SubmitFacts() {
           fontWeight: 'bold',
           color: '#333'
         }}>
-          {token.toUpperCase()}
+          {t('waiting.code')} {token.toUpperCase()}
         </div>
       )}
       <h2>{t('facts.title')}</h2>
