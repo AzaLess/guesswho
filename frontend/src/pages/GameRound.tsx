@@ -471,7 +471,7 @@ export default function GameRound() {
         <GameStats 
           players={playersWithScores || []}
           facts={facts || []}
-          scoreLog={scoreLog}
+          scoreLog={score_logs || []}
         />
       )}
     </div>

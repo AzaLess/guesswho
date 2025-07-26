@@ -3,12 +3,10 @@ import { useState } from 'react';
 interface GameStatsProps {
   players: any[];
   facts: any[];
-  currentRound?: number;
-  totalRounds?: number;
   scoreLog?: any[];
 }
 
-export default function GameStats({ players, facts, currentRound, totalRounds, scoreLog = [] }: GameStatsProps) {
+export default function GameStats({ players, facts, scoreLog = [] }: GameStatsProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const guessedFacts = facts.filter(f => f.guessed);
