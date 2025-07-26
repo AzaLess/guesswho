@@ -1,7 +1,7 @@
 from rest_framework import generics, views, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from .models import Game, Player, Fact, GuessEvent, Score
+from .models import Game, Player, Fact, GuessEvent, Score, LiveGuess, StoryRating, ScoreLog
 from rest_framework.views import APIView
 from .utils import get_client_ip, get_country_from_ip
 
@@ -17,7 +17,7 @@ class StartGameView(APIView):
         game.save()
         return Response({'status': 'Game started.'})
 
-from .serializers import GameSerializer, PlayerSerializer, FactSerializer, GuessEventSerializer, ScoreSerializer
+from .serializers import GameSerializer, PlayerSerializer, FactSerializer, GuessEventSerializer, ScoreSerializer, LiveGuessSerializer, StoryRatingSerializer, ScoreLogSerializer
 import uuid
 
 class GameCreateView(generics.CreateAPIView):
@@ -118,33 +118,95 @@ class FactSubmitView(views.APIView):
         player.game.save(update_fields=["last_fact_added"])
         return Response(FactSerializer(fact).data)
 
-class HostGuessEventView(views.APIView):
+class SubmitLiveGuessView(views.APIView):
     def post(self, request):
+        player_id = request.data.get('player_id')
         fact_id = request.data.get('fact_id')
-        correct_guesser_id = request.data.get('correct_guesser_id')
-        wrong_guess_count = int(request.data.get('wrong_guess_count', 0))
+        guessed_player_id = request.data.get('guessed_player_id')
+        
+        player = Player.objects.filter(id=player_id).first()
+        if not player:
+            return Response({'error': 'Invalid player.'}, status=400)
+            
         fact = Fact.objects.filter(id=fact_id, guessed=False).first()
         if not fact:
             return Response({'error': 'Invalid or already guessed fact.'}, status=400)
-        correct_guesser = Player.objects.filter(id=correct_guesser_id, game=fact.game).first()
-        if not correct_guesser:
-            return Response({'error': 'Invalid guesser.'}, status=400)
-        # Mark fact as guessed
-        fact.guessed = True
-        fact.save()
-        # Record event
-        event = GuessEvent.objects.create(fact=fact, correct_guesser=correct_guesser, wrong_guess_count=wrong_guess_count)
-        # Award points
-        correct_score = Score.objects.get(player=correct_guesser, game=fact.game)
-        correct_score.points += 3
-        correct_score.save()
-        author_score = Score.objects.get(player=fact.author, game=fact.game)
-        author_score.points += wrong_guess_count
-        author_score.save()
-        return Response({
-            'guess_event': GuessEventSerializer(event).data,
-            'updated_scores': [ScoreSerializer(correct_score).data, ScoreSerializer(author_score).data]
-        })
+            
+        guessed_player = Player.objects.filter(id=guessed_player_id, game=fact.game).first()
+        if not guessed_player:
+            return Response({'error': 'Invalid guessed player.'}, status=400)
+        
+        # Check if player already guessed for this fact
+        existing_guess = LiveGuess.objects.filter(fact=fact, guesser=player).first()
+        if existing_guess:
+            return Response({'error': 'You already made a guess for this fact.'}, status=400)
+        
+        # Determine if guess is correct
+        is_correct = guessed_player.id == fact.author.id
+        
+        # Create live guess
+        live_guess = LiveGuess.objects.create(
+            fact=fact,
+            guesser=player,
+            guessed_player=guessed_player,
+            is_correct=is_correct
+        )
+        
+        # Check if this was the correct guess and trigger story phase
+        if is_correct:
+            fact.guessed = True
+            fact.save()
+            
+            # Calculate wrong guesses for scoring
+            wrong_guess_count = LiveGuess.objects.filter(fact=fact, is_correct=False).count()
+            
+            # Record traditional guess event for scoring
+            GuessEvent.objects.create(
+                fact=fact, 
+                correct_guesser=player, 
+                wrong_guess_count=wrong_guess_count
+            )
+            
+            # Award points
+            correct_score = Score.objects.get(player=player, game=fact.game)
+            correct_score.points += 3
+            correct_score.save()
+            
+            # Log correct guess points
+            ScoreLog.objects.create(
+                game=fact.game,
+                player=player,
+                points=3,
+                score_type='correct_guess',
+                description=f'Correct guess for fact: "{fact.text[:50]}..."',
+                fact=fact
+            )
+            
+            author_score = Score.objects.get(player=fact.author, game=fact.game)
+            author_score.points += wrong_guess_count
+            author_score.save()
+            
+            # Log wrong guess points for author
+            if wrong_guess_count > 0:
+                ScoreLog.objects.create(
+                    game=fact.game,
+                    player=fact.author,
+                    points=wrong_guess_count,
+                    score_type='wrong_guesses',
+                    description=f'{wrong_guess_count} wrong guess{"es" if wrong_guess_count > 1 else ""} on their fact',
+                    fact=fact
+                )
+            
+            # Switch to storytelling phase
+            game = fact.game
+            game.game_phase = 'storytelling'
+            game.story_teller = fact.author
+            game.save()
+            
+            # Reset player story flags
+            Player.objects.filter(game=game).update(has_finished_story=False, has_rated_story=False)
+        
+        return Response(LiveGuessSerializer(live_guess).data)
 
 class ScoreboardView(views.APIView):
     def get(self, request, token):
@@ -164,32 +226,158 @@ class GameStateView(views.APIView):
         facts = list(Fact.objects.filter(game=game))
         players = Player.objects.filter(game=game)
         
-        # Текущий факт берем из базы данных (устанавливает только ведущий)
+        # Текущий факт берем из базы данных
         current_fact = None
+        live_guesses = []
+        story_ratings = []
         if game.current_fact:
             current_fact = FactSerializer(game.current_fact).data
+            # Get live guesses for current fact
+            live_guesses = LiveGuess.objects.filter(fact=game.current_fact).order_by('timestamp')
+            live_guesses = LiveGuessSerializer(live_guesses, many=True).data
+            # Get story ratings for current fact
+            story_ratings = StoryRating.objects.filter(fact=game.current_fact)
+            story_ratings = StoryRatingSerializer(story_ratings, many=True).data
+        
+        # Get scores
+        scores = Score.objects.filter(game=game)
+        
+        # Get recent score logs (last 20)
+        score_logs = ScoreLog.objects.filter(game=game).order_by('-timestamp')[:20]
         
         return Response({
             'game': GameSerializer(game).data,
             'players': PlayerSerializer(players, many=True).data,
             'facts': FactSerializer(facts, many=True).data,
-            'current_fact': current_fact,  # Текущий вопрос из базы данных
+            'current_fact': current_fact,
+            'live_guesses': live_guesses,
+            'story_ratings': story_ratings,
+            'scores': ScoreSerializer(scores, many=True).data,
+            'score_logs': ScoreLogSerializer(score_logs, many=True).data,
             'started': game.started,
             'ended': game.ended,
+            'game_phase': game.game_phase,
+            'story_teller': PlayerSerializer(game.story_teller).data if game.story_teller else None,
             'last_fact_added': game.last_fact_added.isoformat() if game.last_fact_added else None
         })
 
-class RevealStoryView(views.APIView):
+class FinishStoryTellingView(views.APIView):
     def post(self, request):
+        player_id = request.data.get('player_id')
+        game_token = request.data.get('token')
+        
+        game = Game.objects.filter(token=game_token).first()
+        if not game:
+            return Response({'error': 'Game not found.'}, status=404)
+            
+        player = Player.objects.filter(id=player_id, game=game).first()
+        if not player:
+            return Response({'error': 'Player not found.'}, status=404)
+        
+        # Check if player is the current story teller
+        if game.story_teller != player:
+            return Response({'error': 'You are not the current story teller.'}, status=403)
+        
+        # Mark player as finished telling story
+        player.has_finished_story = True
+        player.save()
+        
+        # Switch to rating phase
+        game.game_phase = 'rating'
+        game.save()
+        
+        # Reset all players' rating status
+        Player.objects.filter(game=game).update(has_rated_story=False)
+        
+        return Response({'status': 'Story telling finished. Game moved to rating phase.'})
+
+class SubmitStoryRatingView(views.APIView):
+    def post(self, request):
+        player_id = request.data.get('player_id')
         fact_id = request.data.get('fact_id')
-        story = request.data.get('story')
+        rating = request.data.get('rating')
+        
+        if rating not in [1, 2, 3]:
+            return Response({'error': 'Rating must be 1, 2, or 3.'}, status=400)
+        
+        player = Player.objects.filter(id=player_id).first()
+        if not player:
+            return Response({'error': 'Player not found.'}, status=404)
+            
         fact = Fact.objects.filter(id=fact_id).first()
         if not fact:
             return Response({'error': 'Fact not found.'}, status=404)
-        fact.story = story
-        fact.story_revealed = True
-        fact.save()
-        return Response(FactSerializer(fact).data)
+        
+        # Don't allow author to rate their own story
+        if fact.author == player:
+            return Response({'error': 'You cannot rate your own story.'}, status=400)
+        
+        # Create or update rating
+        story_rating, created = StoryRating.objects.get_or_create(
+            fact=fact, 
+            rater=player,
+            defaults={'rating': rating}
+        )
+        if not created:
+            story_rating.rating = rating
+            story_rating.save()
+        
+        # Mark player as having rated
+        player.has_rated_story = True
+        player.save()
+        
+        # Check if all players (except story teller) have rated
+        game = fact.game
+        players_count = game.players.count()
+        rated_count = game.players.filter(has_rated_story=True).count()
+        
+        # If everyone has rated, calculate final score and move to next fact
+        if rated_count >= (players_count - 1):  # -1 because story teller doesn't rate
+            # Calculate average rating
+            ratings = StoryRating.objects.filter(fact=fact)
+            if ratings.exists():
+                avg_rating = sum(r.rating for r in ratings) / ratings.count()
+                fact.story_rating_average = avg_rating
+                fact.story_rating_count = ratings.count()
+                
+                # Award story points to author (rounded average)
+                story_points = round(avg_rating)
+                author_score = Score.objects.get(player=fact.author, game=game)
+                author_score.points += story_points
+                author_score.save()
+                
+                # Log story rating points
+                ScoreLog.objects.create(
+                    game=game,
+                    player=fact.author,
+                    points=story_points,
+                    score_type='story_rating',
+                    description=f'Story rating: {avg_rating:.1f}/3.0 stars (rounded to {story_points} pts)',
+                    fact=fact
+                )
+                
+                fact.save()
+            
+            # Reset game phase and move to next fact
+            game.game_phase = 'guessing'
+            game.story_teller = None
+            
+            # Auto-select next fact if there are unguessed facts left
+            unguessed_facts = Fact.objects.filter(game=game, guessed=False)
+            if unguessed_facts.exists():
+                import random
+                next_fact = random.choice(unguessed_facts)
+                game.current_fact = next_fact
+            else:
+                game.current_fact = None
+                game.ended = True
+            
+            game.save()
+            
+            # Reset player flags for next round
+            Player.objects.filter(game=game).update(has_finished_story=False, has_rated_story=False)
+        
+        return Response(StoryRatingSerializer(story_rating).data)
 
 class StatsView(views.APIView):
     def get(self, request, token):
@@ -369,16 +557,14 @@ class SetCurrentFactView(views.APIView):
     def post(self, request):
         token = request.data.get('token')
         fact_id = request.data.get('fact_id')
-        player_id = request.data.get('player_id')
         
         game = Game.objects.filter(token=token).first()
         if not game:
             return Response({'error': 'Game not found.'}, status=404)
         
-        # Проверяем, что игрок является ведущим
-        player = Player.objects.filter(id=player_id, game=game, is_host=True).first()
-        if not player:
-            return Response({'error': 'Only host can set current fact.'}, status=403)
+        # Only allow setting facts during guessing phase
+        if game.game_phase != 'guessing':
+            return Response({'error': 'Can only set current fact during guessing phase.'}, status=400)
         
         # Если fact_id None, сбрасываем текущий факт
         if fact_id is None:

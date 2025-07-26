@@ -1,7 +1,29 @@
 import requests
 import logging
+import random
 
 logger = logging.getLogger(__name__)
+
+def generate_game_token():
+    """Generate a unique game token in the format animal+number"""
+    from .models import Game
+    
+    animals = [
+        "lion", "tiger", "bear", "fox", "wolf", "panda", "koala", "zebra", "giraffe", "monkey",
+        "cat", "dog", "mouse", "eagle", "owl", "shark", "whale", "dolphin", "rabbit", "frog",
+        "horse", "sheep", "goat", "pig", "deer", "bat", "duck", "swan", "crab", "crow",
+        "bee", "ant", "moose", "lynx", "otter", "camel", "yak", "mole", "yak", "elk"
+    ]
+    tries = 0
+    while True:
+        animal = random.choice(animals)
+        number = random.randint(0, 99)
+        token = f"{animal}{number:02d}"
+        if not Game.objects.filter(token=token).exists():
+            return token
+        tries += 1
+        if tries > 1000:
+            raise Exception("Cannot generate unique token")
 
 def get_client_ip(request):
     """Get client IP address from request"""

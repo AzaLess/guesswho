@@ -22,8 +22,8 @@ export const getGameState = async (token: string) => {
   return res.data;
 };
 
-export const sendGuessEvent = async (fact_id: number, correct_guesser_id: number, wrong_guess_count: number) => {
-  const res = await axios.post(API_BASE + "guess_event/", { fact_id, correct_guesser_id, wrong_guess_count });
+export const submitLiveGuess = async (player_id: number, fact_id: number, guessed_player_id: number) => {
+  const res = await axios.post(API_BASE + "submit_live_guess/", { player_id, fact_id, guessed_player_id });
   return res.data;
 };
 
@@ -32,8 +32,13 @@ export const getScoreboard = async (token: string) => {
   return res.data;
 };
 
-export const revealStory = async (fact_id: number, story: string) => {
-  const res = await axios.post(API_BASE + "reveal_story/", { fact_id, story });
+export const finishStoryTelling = async (player_id: number, token: string) => {
+  const res = await axios.post(API_BASE + "finish_story/", { player_id, token });
+  return res.data;
+};
+
+export const submitStoryRating = async (player_id: number, fact_id: number, rating: number) => {
+  const res = await axios.post(API_BASE + "submit_story_rating/", { player_id, fact_id, rating });
   return res.data;
 };
 
@@ -57,7 +62,7 @@ export const startGame = async (token: string) => {
   return res.data;
 };
 
-export const setCurrentFact = async (token: string, fact_id: number | null, player_id: number) => {
-  const res = await axios.post(API_BASE + "set_current_fact/", { token, fact_id, player_id });
+export const setCurrentFact = async (token: string, fact_id: number | null) => {
+  const res = await axios.post(API_BASE + "set_current_fact/", { token, fact_id });
   return res.data;
 };

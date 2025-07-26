@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { getGameState, sendGuessEvent, submitFact, setCurrentFact } from "../api";
+import { getGameState, submitFact, submitLiveGuess, finishStoryTelling, submitStoryRating, setCurrentFact } from "../api";
 import { useNavigate } from "react-router-dom";
-import { useLanguage } from "../contexts/LanguageContext";
 import { useToast } from "../hooks/useToast";
 import ToastContainer from "../components/ToastContainer";
 import SoundToggle from "../components/SoundToggle";
-import { playCorrectAnswer, playWrongAnswer, playGameEnd, playNextRound, playNewFact } from "../utils/sounds";
+import { playCorrectAnswer, playWrongAnswer, playNextRound, playNewFact } from "../utils/sounds";
 import BackToMenuButton from "../components/BackToMenuButton";
+import GameStats from "../components/GameStats";
 
 export default function GameRound() {
   const token = localStorage.getItem("token") || "";
@@ -20,316 +20,460 @@ export default function GameRound() {
     }
   };
   const player = getPlayerFromStorage();
-  const [facts, setFacts] = useState<any[]>([]);
-  const [players, setPlayers] = useState<any[]>([]);
-  const [scores, setScores] = useState<any[]>([]);
-  const [current, setCurrent] = useState<any | null>(null);
-  const [wrongGuesses, setWrongGuesses] = useState("");
-  const [correctGuesser, setCorrectGuesser] = useState("");
-  const [result, setResult] = useState("");
+  const [gameState, setGameState] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [dataLoaded, setDataLoaded] = useState(false);
+  const [storyRating, setStoryRating] = useState<number | null>(null);
   const [showAddFact, setShowAddFact] = useState(false);
   const [newFact, setNewFact] = useState("");
   const [addingFact, setAddingFact] = useState(false);
-  const [showNewFactCount, setShowNewFactCount] = useState(false);
+  // Remove local scoreLog as we get it from API
   
   const navigate = useNavigate();
   const { toasts, showSuccess, showError, removeToast } = useToast();
-  const { t } = useLanguage();
 
   useEffect(() => {
-    let prevFactTimestamp: string | null = null;
     const loadGameData = async () => {
       try {
-        console.log("GameRound: Loading game state for player:", player);
         const data = await getGameState(token);
         console.log("GameRound: Game state received:", data);
-        const unguessed = data.facts.filter((f: any) => !f.guessed);
-        console.log("GameRound: All facts:", data.facts);
-        console.log("GameRound: Unguessed facts:", unguessed);
         
-        // Если игра завершена — сразу переходим на финальный экран
+        // If game ended, go to end screen
         if (data.ended) {
           navigate("/end");
           return;
         }
         
-        // Синхронизируем анимацию +1 по серверному timestamp
-        const factTimestamp = data.last_fact_added;
-        if (factTimestamp && factTimestamp !== prevFactTimestamp) {
-          setShowNewFactCount(true);
-          setTimeout(() => setShowNewFactCount(false), 3000);
-          prevFactTimestamp = factTimestamp;
-        }
-        
-        // Обновляем localStorage
-        localStorage.setItem('lastFactCount', unguessed.length.toString());
-        
-        // НОВАЯ ЛОГИКА: Текущий вопрос берем ТОЛЬКО от сервера
-        if (data.current_fact) {
-          console.log("GameRound: Получен текущий факт от сервера:", data.current_fact);
-          setCurrent(data.current_fact);
-        } else {
-          console.log("GameRound: Сервер не вернул текущий факт");
-          // Если ведущий и нет текущего факта - выбираем первый случайный
-          if (player.is_host && unguessed.length > 0 && !current) {
-            console.log("GameRound: Ведущий выбирает новый случайный факт");
-            const randomIndex = Math.floor(Math.random() * unguessed.length);
-            const newCurrent = unguessed[randomIndex];
-            setCurrent(newCurrent);
-            // Устанавливаем его на сервере
-            await setCurrentFact(token, newCurrent.id, player.id);
-          } else if (!player.is_host) {
-            // Участники ждут, пока ведущий выберет вопрос
-            setCurrent(null);
-          }
-        }
-        
-        setFacts(unguessed);
-        setPlayers(data.players);
-        
-        // Обновляем таблицу очков
-        const scoresData = await fetch(`/api/game/scoreboard/${token}/`).then(r => r.json());
-        setScores(scoresData);
-        
-        // Отмечаем, что данные загружены
-        setDataLoaded(true);
+        setGameState(data);
       } catch (error) {
         console.error("Error loading game data:", error);
-        showError(t('round.dataError'));
-        setDataLoaded(true); // Даже при ошибке отмечаем как загруженное
+        showError('Failed to load game data');
       }
     };
 
-    // Загружаем данные сразу
     loadGameData();
-    
-    // Добавляем polling для всех игроков (и ведущего, и участников)
-    // чтобы все видели обновления в реальном времени
-    const interval = setInterval(loadGameData, 3000);
+    const interval = setInterval(loadGameData, 2000);
     
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [token, player.id, player.is_host]);
+  }, [token, navigate, showError]);
 
-  const handleNext = async () => {
-    // Сбрасываем состояние для следующего вопроса
-    setWrongGuesses("");
-    setCorrectGuesser("");
-    setResult("");
-    
-    // Обновляем данные игры для получения актуального списка неотвеченных фактов
-    try {
-      const data = await getGameState(token);
-      const unguessed = data.facts.filter((f: any) => !f.guessed);
-      setFacts(unguessed);
-      
-      // НОВАЯ ЛОГИКА: Только ведущий выбирает и устанавливает новый текущий факт
-      if (player.is_host) {
-        if (unguessed.length > 0) {
-          console.log("GameRound: Ведущий выбирает следующий случайный факт");
-          const randomIndex = Math.floor(Math.random() * unguessed.length);
-          const newCurrent = unguessed[randomIndex];
-          setCurrent(newCurrent);
-          // Устанавливаем новый текущий факт на сервере
-          await setCurrentFact(token, newCurrent.id, player.id);
-        } else {
-          console.log("GameRound: Нет больше неотвеченных фактов");
-          setCurrent(null);
-          // Сбрасываем текущий факт на сервере
-          await setCurrentFact(token, null, player.id);
-        }
-      } else {
-        // Участники просто обновляют свое состояние - текущий факт придет от сервера при следующем polling
-        console.log("GameRound: Участник ждет нового факта от ведущего");
-      }
-    } catch (error) {
-      console.error("Error updating game data:", error);
-      // Если ошибка, пытаемся выбрать следующий из текущего списка (только для ведущего)
-      if (player.is_host) {
-        const idx = facts.indexOf(current);
-        const nextFact = facts[idx + 1] || null;
-        setCurrent(nextFact);
-        if (nextFact) {
-          await setCurrentFact(token, nextFact.id, player.id);
-        } else {
-          await setCurrentFact(token, null, player.id);
-        }
-      }
+  // Reset story rating when current fact changes
+  useEffect(() => {
+    if (gameState?.current_fact) {
+      setStoryRating(null);
     }
+  }, [gameState?.current_fact?.id]);
+
+  // Score tracking is now handled by backend ScoreLog
+
+  const handleGuess = async (guessedPlayerId: number) => {
+    if (!gameState?.current_fact) return;
+    
+    setLoading(true);
+    try {
+      await submitLiveGuess(player.id, gameState.current_fact.id, guessedPlayerId);
+      showSuccess('Guess submitted!');
+      playCorrectAnswer();
+    } catch (error: any) {
+      console.error("Error submitting guess:", error);
+      showError(error.response?.data?.error || 'Failed to submit guess');
+      playWrongAnswer();
+    }
+    setLoading(false);
+  };
+
+  const handleFinishStory = async () => {
+    setLoading(true);
+    try {
+      await finishStoryTelling(player.id, token);
+      showSuccess('Story finished! Moving to rating phase.');
+    } catch (error: any) {
+      console.error("Error finishing story:", error);
+      showError(error.response?.data?.error || 'Failed to finish story');
+    }
+    setLoading(false);
+  };
+
+  const handleRateStory = async (rating: number) => {
+    if (!gameState?.current_fact) return;
+    
+    setLoading(true);
+    try {
+      await submitStoryRating(player.id, gameState.current_fact.id, rating);
+      setStoryRating(rating);
+      showSuccess('Rating submitted!');
+    } catch (error: any) {
+      console.error("Error submitting rating:", error);
+      showError(error.response?.data?.error || 'Failed to submit rating');
+    }
+    setLoading(false);
   };
 
   const handleAddFact = async () => {
-    if (!newFact.trim()) return showError("Введите факт!");
+    if (!newFact.trim()) return showError("Enter a fact!");
     setAddingFact(true);
     try {
       await submitFact(player.id, newFact);
       setNewFact("");
       setShowAddFact(false);
-      // Обновляем данные игры для всех
-      const data = await getGameState(token);
-      const unguessed = data.facts.filter((f: any) => !f.guessed);
-      setFacts(unguessed);
-      // НЕ меняем текущий факт при добавлении нового
-      showSuccess("Факт добавлен! У всех обновится количество вопросов.");
-      // Показываем анимацию увеличения счетчика
-      setShowNewFactCount(true);
-      setTimeout(() => setShowNewFactCount(false), 3000);
-      // Сохраняем timestamp добавления факта для синхронизации
-      localStorage.setItem('newFactTimestamp', Date.now().toString());
-      // 🔊 Звук добавления нового факта
+      showSuccess("Fact added!");
       playNewFact();
     } catch {
-      showError("Ошибка при добавлении факта");
+      showError("Error adding fact");
     }
     setAddingFact(false);
   };
 
-  const handleResult = async () => {
-    if (!current) return;
-    setLoading(true);
-    try {
-      const correctPlayerId = Number(correctGuesser);
-      await sendGuessEvent(current.id, correctPlayerId, Number(wrongGuesses) || 0);
-      // Обновляем таблицу очков после сохранения результата
-      const updatedScores = await fetch(`/api/game/scoreboard/${token}/`).then(r => r.json());
-      setScores(updatedScores);
-      setResult("Результат сохранён!");
-      // 🔊 Звук правильного ответа при сохранении результата
-      if (correctGuesser) {
-        playCorrectAnswer();
-      }
-      setTimeout(() => {
-        playNextRound(); // 🔊 Звук перехода к следующему раунду
-        handleNext();
-      }, 1000);
-    } catch {
-      showError("Ошибка отправки результата");
+  const handleStartNewRound = async () => {
+    if (!gameState?.facts) return;
+    
+    const unguessedFacts = gameState.facts.filter((f: any) => !f.guessed);
+    if (unguessedFacts.length === 0) {
+      navigate("/end");
+      return;
     }
-    setLoading(false);
+    
+    try {
+      const randomFact = unguessedFacts[Math.floor(Math.random() * unguessedFacts.length)];
+      await setCurrentFact(token, randomFact.id);
+      showSuccess('New round started!');
+      playNextRound();
+    } catch (error) {
+      console.error("Error starting new round:", error);
+      showError('Failed to start new round');
+    }
   };
 
-  // Показываем загрузку, пока данные не загружены
-  if (!dataLoaded) {
+  if (!gameState) {
     return (
       <div className="app-container">
-        <h2>⏳ Загрузка игры...</h2>
+        <h2>⏳ Loading game...</h2>
       </div>
     );
   }
 
-  // Только после загрузки проверяем, есть ли вопросы
-  if (!current) {
-    console.log("GameRound: No current fact after data loaded! Facts array:", facts, "Current:", current);
-    // Автоматически переходим к финальному экрану для всех игроков
-    setTimeout(() => navigate("/end"), 1000);
+  const { players, facts, current_fact, live_guesses, story_ratings, scores, score_logs, game_phase, story_teller } = gameState;
+  const unguessedFacts = facts.filter((f: any) => !f.guessed);
+  
+  // Merge players with their scores
+  const playersWithScores = players.map((player: any) => ({
+    ...player,
+    scores: scores ? scores.filter((s: any) => s.player === player.id) : []
+  }));
+
+  // If no current fact during guessing phase, show start round button
+  if (!current_fact && game_phase === 'guessing') {
     return (
       <div className="app-container">
-        <h2>🎉 Раунды завершены! 🎉</h2>
-        <p>Переходим к результатам...</p>
-      </div>
-    );
-  }
-
-  // Сколько осталось вопросов
-  const questionsLeft = facts.length;
-
-  // Таблица очков
-  const scoreboard = (
-    <div style={{ margin: "18px 0" }}>
-      <h3>🏆 Таблица очков</h3>
-      <ul style={{ listStyle: "none", padding: 0 }}>
-        {scores.map((s: any) => (
-          <li key={s.id}>
-            {s.player_emoji || "🧑"} <b>{s.player_name || players.find((p: any) => p.id === s.player)?.name || s.player}</b>: {s.points}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-
-  // Для ведущего — выбор угадавшего, для остальных — просто инфо
-  const isHost = player.is_host;
-  const canPickGuesser = isHost && players.length > 0;
-  const guesserSelect = canPickGuesser ? (
-    <>
-      <label>{t('round.whoGuessed')}</label>
-      <select value={correctGuesser} onChange={e => setCorrectGuesser(e.target.value)}>
-        <option value="">{t('round.selectPlayer')}</option>
-        {players.filter((p: any) => p.id !== current.author).map((p: any) => (
-          <option key={p.id} value={p.id}>{p.name}</option>
-        ))}
-      </select>
-      <label>{t('round.wrongAttempts')}</label>
-      <input type="text" value={wrongGuesses} onChange={e => setWrongGuesses(e.target.value)} />
-      <button onClick={handleResult} disabled={loading || !correctGuesser}>
-        {loading ? t('round.saving') : t('round.saveResult')}
-      </button>
-      {result && <div className="center">🎉 {result}</div>}
-    </>
-  ) : null;
-
-  return (
-    <div className="app-container">
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <SoundToggle />
-      <BackToMenuButton />
-      <h2>{t('round.title')}</h2>
-      <div style={{ margin: "20px 0", fontSize: "1.2em", color: "#7ed957" }}>
-        "{current.text}"
-      </div>
-      <div style={{ marginBottom: 10 }}>
-        {t('round.questionsLeft')} 
-        <b style={{ 
-          color: showNewFactCount ? '#4CAF50' : 'inherit',
-          transition: 'color 0.3s ease'
-        }}>
-          {questionsLeft}{showNewFactCount ? ' (+1)' : ''}
-        </b>
-      </div>
-      
-      {/* Кнопка добавления факта для всех игроков */}
-      <div style={{ margin: "15px 0", padding: "10px", border: "1px dashed #ccc", borderRadius: "8px" }}>
-        {!showAddFact ? (
-          <button 
-            onClick={() => setShowAddFact(true)}
-            style={{ background: "#4CAF50", color: "white", border: "none", padding: "8px 16px", borderRadius: "4px", cursor: "pointer" }}
-          >
-            {t('round.addFact')}
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+        <SoundToggle />
+        <BackToMenuButton />
+        <h2>🎮 Ready for Next Round?</h2>
+        <p>Questions remaining: <b>{unguessedFacts.length}</b></p>
+        {unguessedFacts.length > 0 ? (
+          <button onClick={handleStartNewRound} className="btn-primary">
+            Start New Round
           </button>
         ) : (
           <div>
-            <h4>{t('round.addFactTitle')}</h4>
-            <input 
-              type="text" 
-              value={newFact} 
-              onChange={(e) => setNewFact(e.target.value)}
-              placeholder={t('round.addFactPlaceholder')}
-              style={{ width: "100%", padding: "8px", marginBottom: "10px", borderRadius: "4px", border: "1px solid #ccc" }}
-            />
-            <div>
+            <p>🎉 No more questions! Game ending...</p>
+            <button onClick={() => navigate("/end")} className="btn-primary">
+              View Final Results
+            </button>
+          </div>
+        )}
+        
+        <GameStats 
+          players={playersWithScores}
+          facts={facts}
+          scoreLog={score_logs || []}
+        />
+      </div>
+    );
+  }
+
+  // Guessing Phase
+  if (game_phase === 'guessing' && current_fact) {
+    const playerAlreadyGuessed = live_guesses.some((guess: any) => guess.guesser === player.id);
+    const availablePlayers = players; // Show all players
+    
+    // Get players who were incorrectly guessed (and should be disabled)
+    const incorrectlyGuessedPlayers = live_guesses
+      .filter((guess: any) => guess.is_correct === false)
+      .map((guess: any) => guess.guessed_player);
+
+    return (
+      <div className="app-container">
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+        <SoundToggle />
+        <BackToMenuButton />
+        <h2>🎯 Guessing Phase</h2>
+        
+        <div className="fact-display">
+          <h3>"{current_fact.text}"</h3>
+        </div>
+
+        <div className="questions-left">
+          Questions remaining: <b>{unguessedFacts.length}</b>
+        </div>
+
+        {!playerAlreadyGuessed ? (
+          <div className="guessing-section">
+            <h4>Who do you think wrote this fact?</h4>
+            <div className="player-buttons">
+              {availablePlayers.map((p: any) => {
+                const isSelf = p.id === player.id;
+                const isEliminated = incorrectlyGuessedPlayers.includes(p.id);
+                const isDisabled = loading || isSelf || isEliminated;
+                
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => !isDisabled && handleGuess(p.id)}
+                    disabled={isDisabled}
+                    className={`player-btn ${isSelf ? 'disabled-self' : ''} ${isEliminated ? 'eliminated' : ''}`}
+                    title={
+                      isSelf ? "You can't vote for yourself" : 
+                      isEliminated ? "This player was already incorrectly guessed" : ""
+                    }
+                  >
+                    {p.emoji} {p.name} 
+                    {isSelf ? ' (You)' : ''}
+                    {isEliminated ? ' ❌' : ''}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="waiting-section">
+            <p>✅ You've made your guess! Waiting for others...</p>
+          </div>
+        )}
+
+        {/* Live Guesses Feed */}
+        <div className="live-guesses">
+          <h4>🔥 Live Guesses</h4>
+          {live_guesses.length === 0 ? (
+            <p>No guesses yet...</p>
+          ) : (
+            <div className="guess-feed">
+              {live_guesses.map((guess: any) => (
+                <div key={guess.id} className="guess-item">
+                  <span className="guesser">{guess.guesser_emoji} {guess.guesser_name}</span>
+                  <span> → </span>
+                  <span className="guessed">{guess.guessed_player_emoji} {guess.guessed_player_name}</span>
+                  <span className="result">
+                    {guess.is_correct === null ? "⏳" : guess.is_correct ? "✅" : "❌"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Add Fact Section */}
+        <div className="add-fact-section">
+          {!showAddFact ? (
+            <button onClick={() => setShowAddFact(true)} className="btn-secondary">
+              ➕ Add New Fact
+            </button>
+          ) : (
+            <div className="add-fact-form">
+              <h4>Add a New Fact</h4>
+              <input 
+                type="text" 
+                value={newFact} 
+                onChange={(e) => setNewFact(e.target.value)}
+                placeholder="Enter an interesting fact about yourself..."
+                className="fact-input"
+              />
+              <div className="form-buttons">
+                <button 
+                  onClick={handleAddFact} 
+                  disabled={addingFact || !newFact.trim()}
+                  className="btn-primary"
+                >
+                  {addingFact ? 'Adding...' : 'Add Fact'}
+                </button>
+                <button 
+                  onClick={() => { setShowAddFact(false); setNewFact(""); }}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <GameStats 
+          players={playersWithScores}
+          facts={facts}
+          scoreLog={score_logs || []}
+        />
+      </div>
+    );
+  }
+
+  // Story Telling Phase
+  if (game_phase === 'storytelling' && story_teller) {
+    const isStoryTeller = story_teller.id === player.id;
+    const correctGuesser = live_guesses.find((guess: any) => guess.is_correct);
+
+    return (
+      <div className="app-container">
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+        <SoundToggle />
+        <BackToMenuButton />
+        <h2>📖 Story Time!</h2>
+        
+        <div className="fact-display">
+          <h3>"{current_fact.text}"</h3>
+        </div>
+
+        {correctGuesser && (
+          <div className="correct-guess-announcement">
+            <p>🎉 <b>{correctGuesser.guesser_emoji} {correctGuesser.guesser_name}</b> correctly guessed that <b>{story_teller.emoji} {story_teller.name}</b> wrote this fact!</p>
+          </div>
+        )}
+
+        {isStoryTeller ? (
+          <div className="storyteller-section">
+            <h4>🎭 You're the storyteller!</h4>
+            <p>Tell everyone the story behind your fact. When you're done, click the button below.</p>
+            <button 
+              onClick={handleFinishStory}
+              disabled={loading}
+              className="btn-primary"
+            >
+              {loading ? 'Processing...' : "I finished telling my story"}
+            </button>
+          </div>
+        ) : (
+          <div className="listener-section">
+            <h4>👂 Listen to the story</h4>
+            <p>
+              <b>{story_teller.emoji} {story_teller.name}</b> is telling the story behind their fact.
+            </p>
+            <p>Get ready to rate the story!</p>
+          </div>
+        )}
+        
+        <GameStats 
+          players={playersWithScores}
+          facts={facts}
+          scoreLog={score_logs || []}
+        />
+      </div>
+    );
+  }
+
+  // Story Rating Phase
+  if (game_phase === 'rating' && current_fact) {
+    const isAuthor = current_fact.author === player.id;
+    const playerRatings = story_ratings || [];
+    const hasRatedInDB = playerRatings.some((rating: any) => rating.rater === player.id);
+    const hasRated = storyRating !== null || hasRatedInDB;
+    const eligibleVoters = players.filter((p: any) => p.id !== current_fact.author);
+    const averageRating = current_fact.story_rating_average;
+
+    return (
+      <div className="app-container">
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+        <SoundToggle />
+        <BackToMenuButton />
+        <h2>⭐ Rate the Story</h2>
+        
+        <div className="fact-display">
+          <h3>"{current_fact.text}"</h3>
+        </div>
+
+        {/* Show voting status */}
+        <div className="voting-status">
+          <h4>📊 Voting Status</h4>
+          <div className="voter-list">
+            {eligibleVoters.map((p: any) => {
+              const hasVoted = playerRatings.some((rating: any) => rating.rater === p.id);
+              return (
+                <div key={p.id} className={`voter-item ${hasVoted ? 'voted' : 'not-voted'}`}>
+                  <span>{p.emoji} {p.name}</span>
+                  <span className="vote-indicator">{hasVoted ? '✅' : '⏳'}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {averageRating !== null && averageRating !== undefined ? (
+          <div className="final-rating">
+            <h4>🏆 Final Rating: {averageRating.toFixed(1)} / 3.0 stars</h4>
+            <p>Based on {current_fact.story_rating_count} vote{current_fact.story_rating_count !== 1 ? 's' : ''}</p>
+          </div>
+        ) : isAuthor ? (
+          <div className="author-waiting">
+            <h4>⏳ Waiting for ratings...</h4>
+            <p>Other players are rating your story. Results will be shown shortly!</p>
+          </div>
+        ) : hasRated ? (
+          <div className="rated-section">
+            <h4>✅ Rating submitted!</h4>
+            {(() => {
+              const myRating = storyRating || playerRatings.find((r: any) => r.rater === player.id)?.rating;
+              return <p>You rated this story: <b>{myRating} star{myRating !== 1 ? 's' : ''}</b></p>;
+            })()}
+            <p>Waiting for other players to rate...</p>
+          </div>
+        ) : (
+          <div className="rating-section">
+            <h4>How was the story?</h4>
+            <div className="rating-buttons">
               <button 
-                onClick={handleAddFact} 
-                disabled={addingFact || !newFact.trim()}
-                style={{ background: "#4CAF50", color: "white", border: "none", padding: "8px 16px", borderRadius: "4px", cursor: "pointer", marginRight: "10px" }}
+                onClick={() => handleRateStory(1)}
+                disabled={loading}
+                className="rating-btn boring"
               >
-                {addingFact ? t('round.adding') : t('round.add')}
+                😴 Boring (1 star)
               </button>
               <button 
-                onClick={() => { setShowAddFact(false); setNewFact(""); }}
-                style={{ background: "#f44336", color: "white", border: "none", padding: "8px 16px", borderRadius: "4px", cursor: "pointer" }}
+                onClick={() => handleRateStory(2)}
+                disabled={loading}
+                className="rating-btn good"
               >
-                {t('round.cancel')}
+                👍 Good (2 stars)
+              </button>
+              <button 
+                onClick={() => handleRateStory(3)}
+                disabled={loading}
+                className="rating-btn amazing"
+              >
+                🤩 Amazing (3 stars)
               </button>
             </div>
           </div>
         )}
+        
+        <GameStats 
+          players={playersWithScores}
+          facts={facts}
+          scoreLog={score_logs || []}
+        />
       </div>
+    );
+  }
+
+  return (
+    <div className="app-container">
+      <h2>⏳ Loading...</h2>
       
-      {isHost ? guesserSelect : <div style={{ margin: "10px 0" }}>{t('round.waitingHost')}</div>}
-      {scoreboard}
+      {gameState && (
+        <GameStats 
+          players={playersWithScores || []}
+          facts={facts || []}
+          scoreLog={scoreLog}
+        />
+      )}
     </div>
   );
 }

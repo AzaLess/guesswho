@@ -43,3 +43,448 @@ label {
 .center {
   text-align: center;
 }
+
+/* New Game Round Styles */
+.fact-display {
+  background: #2c3339;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px 0;
+  border-left: 4px solid #7ed957;
+}
+
+.fact-display h3 {
+  margin: 0;
+  color: #f2f2f2;
+  font-style: italic;
+}
+
+.questions-left {
+  text-align: center;
+  margin: 15px 0;
+  font-size: 1.1em;
+}
+
+.player-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.player-btn {
+  background: #3a4149;
+  color: #f2f2f2;
+  padding: 12px;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.player-btn:hover {
+  border-color: #7ed957;
+  background: #4a5159;
+}
+
+.player-btn.disabled-self {
+  background: #2a2e33;
+  color: #7a7a7a;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.player-btn.disabled-self:hover {
+  border-color: transparent;
+  background: #2a2e33;
+}
+
+.player-btn.eliminated {
+  background: #4a2a2a;
+  color: #aa6666;
+  cursor: not-allowed;
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.player-btn.eliminated:hover {
+  border-color: transparent;
+  background: #4a2a2a;
+}
+
+.player-btn.fact-author {
+  border: 2px solid #ffd700;
+  background: #463f1a;
+  color: #ffd700;
+}
+
+.player-btn.fact-author:hover {
+  background: #5a4f20;
+  border-color: #ffd700;
+}
+
+.correct-guess-announcement {
+  background: #1a4f20;
+  border: 2px solid #7ed957;
+  border-radius: 8px;
+  padding: 15px;
+  margin: 15px 0;
+  text-align: center;
+}
+
+.correct-guess-announcement p {
+  margin: 0;
+  color: #7ed957;
+}
+
+.voting-status {
+  background: #2c3339;
+  border-radius: 8px;
+  padding: 15px;
+  margin: 15px 0;
+}
+
+.voter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.voter-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #3a4149;
+}
+
+.voter-item.voted {
+  background: #1a4f20;
+  border: 1px solid #7ed957;
+}
+
+.voter-item.not-voted {
+  background: #4a3a1a;
+  border: 1px solid #ffd700;
+}
+
+.vote-indicator {
+  font-size: 1.2em;
+}
+
+.final-rating {
+  background: #1a4f20;
+  border: 2px solid #7ed957;
+  border-radius: 8px;
+  padding: 15px;
+  margin: 15px 0;
+  text-align: center;
+}
+
+.final-rating h4 {
+  margin: 0 0 10px 0;
+  color: #7ed957;
+}
+
+.final-rating p {
+  margin: 0;
+  color: #b5b5b5;
+}
+
+/* Game Stats Component */
+.game-stats {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  max-width: 350px;
+  z-index: 1000;
+}
+
+.stats-toggle {
+  background: #7ed957;
+  color: #181c20;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  transition: all 0.2s ease;
+}
+
+.stats-toggle:hover {
+  background: #a6ff8f;
+  transform: translateY(-1px);
+}
+
+.stats-content {
+  background: #23272c;
+  border: 2px solid #7ed957;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.stats-section {
+  margin-bottom: 16px;
+}
+
+.stats-section:last-child {
+  margin-bottom: 0;
+}
+
+.stats-section h4 {
+  margin: 0 0 8px 0;
+  color: #7ed957;
+  font-size: 14px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: #2c3339;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.stat-label {
+  color: #b5b5b5;
+}
+
+.stat-value {
+  color: #f2f2f2;
+  font-weight: 600;
+}
+
+.leaderboard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.leaderboard-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  background: #2c3339;
+  border-radius: 4px;
+  font-size: 12px;
+  gap: 8px;
+}
+
+.leaderboard-item.leader {
+  background: #1a4f20;
+  border: 1px solid #7ed957;
+}
+
+.position {
+  color: #7ed957;
+  font-weight: 600;
+  min-width: 20px;
+}
+
+.player-info {
+  flex: 1;
+  color: #f2f2f2;
+}
+
+.score {
+  color: #7ed957;
+  font-weight: 600;
+}
+
+.score-log {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.log-item {
+  display: grid;
+  grid-template-columns: 50px 1fr 40px 1fr;
+  gap: 6px;
+  padding: 4px 6px;
+  background: #2c3339;
+  border-radius: 4px;
+  font-size: 11px;
+  align-items: center;
+}
+
+.log-time {
+  color: #888;
+  font-size: 10px;
+}
+
+.log-player {
+  color: #f2f2f2;
+}
+
+.log-points {
+  font-weight: 600;
+  text-align: center;
+}
+
+.log-points.positive {
+  color: #7ed957;
+}
+
+.log-points.negative {
+  color: #ff6b6b;
+}
+
+.log-reason {
+  color: #b5b5b5;
+  font-size: 10px;
+}
+
+.live-guesses {
+  margin: 25px 0;
+  padding: 15px;
+  background: #2c3339;
+  border-radius: 8px;
+}
+
+.live-guesses h4 {
+  margin-top: 0;
+  color: #7ed957;
+}
+
+.guess-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.guess-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  background: #3a4149;
+  border-radius: 6px;
+  font-size: 0.95em;
+}
+
+.guess-item .guesser {
+  font-weight: bold;
+}
+
+.guess-item .result {
+  margin-left: auto;
+  font-size: 1.2em;
+}
+
+.add-fact-section {
+  margin: 25px 0;
+  padding: 15px;
+  border: 2px dashed #4a5159;
+  border-radius: 8px;
+}
+
+.add-fact-form h4 {
+  margin-top: 0;
+  color: #7ed957;
+}
+
+.fact-input {
+  background: #3a4149;
+  color: #f2f2f2;
+  border: 1px solid #4a5159;
+}
+
+.form-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.form-buttons button {
+  flex: 1;
+}
+
+.btn-primary {
+  background: #7ed957;
+  color: #181c20;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: #f2f2f2;
+}
+
+.btn-secondary:hover {
+  background: #8c939d;
+}
+
+.storyteller-section, .listener-section {
+  background: #2c3339;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px 0;
+  text-align: center;
+}
+
+.rating-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.rating-btn {
+  padding: 15px;
+  font-size: 1.1em;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.rating-btn.boring {
+  background: #dc3545;
+  color: white;
+}
+
+.rating-btn.boring:hover {
+  background: #c82333;
+}
+
+.rating-btn.good {
+  background: #ffc107;
+  color: #181c20;
+}
+
+.rating-btn.good:hover {
+  background: #e0a800;
+}
+
+.rating-btn.amazing {
+  background: #28a745;
+  color: white;
+}
+
+.rating-btn.amazing:hover {
+  background: #218838;
+}
+
+.waiting-section, .rated-section, .author-waiting {
+  background: #2c3339;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px 0;
+  text-align: center;
+}
+
+.guessing-section h4 {
+  color: #7ed957;
+  text-align: center;
+}
