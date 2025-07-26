@@ -2,7 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.utils import timezone
-from .models import Game, Player, Score, Fact, LiveGuess, GuessEvent, StoryRating
+from .models import Game, Player, Score, Fact, LiveGuess, GuessEvent, StoryRating, ScoreLog
 from .utils import generate_game_token
 
 class BaseGameTestCase(TestCase):
@@ -263,6 +263,16 @@ class LiveGuessTest(BaseGameTestCase):
         author_score = Score.objects.get(player=self.player1, game=self.game)
         self.assertEqual(guesser_score.points, 3)  # Correct guess = 3 points
         
+        # Verify ScoreLog entries were created
+        correct_guess_log = ScoreLog.objects.filter(
+            game=self.game, 
+            player=self.player2, 
+            score_type='correct_guess'
+        ).first()
+        self.assertIsNotNone(correct_guess_log)
+        self.assertEqual(correct_guess_log.points, 3)
+        self.assertIn('Correct guess', correct_guess_log.description)
+        
     def test_wrong_guess(self):
         """Test making an incorrect guess"""
         response = self.client.post('/api/game/submit_live_guess/', {
@@ -288,7 +298,7 @@ class LiveGuessTest(BaseGameTestCase):
     def test_duplicate_guess(self):
         """Test that player can't guess twice for same fact"""
         # First guess
-        self.client.post('/api/game/submit-live-guess/', {
+        self.client.post('/api/game/submit_live_guess/', {
             'player_id': self.player2.id,
             'fact_id': self.fact.id,
             'guessed_player_id': self.host.id
@@ -301,8 +311,8 @@ class LiveGuessTest(BaseGameTestCase):
             'guessed_player_id': self.player1.id
         }, format='json')
         
-        # Current implementation allows multiple guesses
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Should return error for duplicate guess
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 class ScoringTest(BaseGameTestCase):
     """Test scoring logic"""
@@ -355,11 +365,38 @@ class ScoringTest(BaseGameTestCase):
         author_score.points += wrong_guess_count
         author_score.save()
         
+        # Create ScoreLog entries as the view would
+        ScoreLog.objects.create(
+            game=self.game,
+            player=self.host,
+            points=3,
+            score_type='correct_guess',
+            description=f'Correct guess for fact: "{self.fact.text[:50]}..."',
+            fact=self.fact
+        )
+        ScoreLog.objects.create(
+            game=self.game,
+            player=self.player1,
+            points=wrong_guess_count,
+            score_type='wrong_guesses',
+            description=f'{wrong_guess_count} wrong guess{"es" if wrong_guess_count > 1 else ""} on their fact',
+            fact=self.fact
+        )
+        
         # Verify scoring
         correct_score.refresh_from_db()
         author_score.refresh_from_db()
         self.assertEqual(correct_score.points, 3)  # Correct guesser gets 3
         self.assertEqual(author_score.points, 2)   # Author gets 2 (number of wrong guesses)
+        
+        # Verify ScoreLog entries
+        self.assertEqual(ScoreLog.objects.filter(game=self.game).count(), 2)
+        correct_log = ScoreLog.objects.filter(player=self.host, score_type='correct_guess').first()
+        wrong_log = ScoreLog.objects.filter(player=self.player1, score_type='wrong_guesses').first()
+        self.assertIsNotNone(correct_log)
+        self.assertIsNotNone(wrong_log)
+        self.assertEqual(correct_log.points, 3)
+        self.assertEqual(wrong_log.points, 2)
 
 class StorytellingPhaseTest(BaseGameTestCase):
     """Test storytelling phase functionality"""
@@ -473,7 +510,11 @@ class GameStateAPITest(BaseGameTestCase):
         self.assertIn('players', response.data)
         self.assertIn('facts', response.data)
         self.assertIn('game_phase', response.data)
+        self.assertIn('score_logs', response.data)
         self.assertEqual(response.data['game_phase'], 'guessing')
+        
+        # Verify score_logs is a list
+        self.assertIsInstance(response.data['score_logs'], list)
         
     def test_get_game_state_invalid_token(self):
         """Test getting state for non-existent game"""
@@ -532,3 +573,277 @@ class GamePhaseTransitionTest(BaseGameTestCase):
         
         # Game would transition back to guessing for next fact
         # or end if no more facts
+
+class ScoreLogTest(BaseGameTestCase):
+    """Test ScoreLog model and functionality"""
+    
+    def setUp(self):
+        super().setUp()
+        self.player1 = self.create_player("Alice", "🔴")
+        self.fact = self.create_fact(self.player1, "Test fact")
+        
+    def test_score_log_creation(self):
+        """Test basic ScoreLog creation"""
+        score_log = ScoreLog.objects.create(
+            game=self.game,
+            player=self.player1,
+            points=3,
+            score_type='correct_guess',
+            description='Correct guess for fact',
+            fact=self.fact
+        )
+        
+        self.assertEqual(score_log.game, self.game)
+        self.assertEqual(score_log.player, self.player1)
+        self.assertEqual(score_log.points, 3)
+        self.assertEqual(score_log.score_type, 'correct_guess')
+        self.assertIn('Correct guess', score_log.description)
+        self.assertEqual(score_log.fact, self.fact)
+        self.assertIsNotNone(score_log.timestamp)
+        
+    def test_score_log_types(self):
+        """Test all ScoreLog types"""
+        # Correct guess log
+        correct_log = ScoreLog.objects.create(
+            game=self.game,
+            player=self.player1,
+            points=3,
+            score_type='correct_guess',
+            description='Correct guess',
+            fact=self.fact
+        )
+        
+        # Wrong guesses log
+        wrong_log = ScoreLog.objects.create(
+            game=self.game,
+            player=self.player1,
+            points=2,
+            score_type='wrong_guesses',
+            description='2 wrong guesses on their fact',
+            fact=self.fact
+        )
+        
+        # Story rating log
+        story_log = ScoreLog.objects.create(
+            game=self.game,
+            player=self.player1,
+            points=3,
+            score_type='story_rating',
+            description='Story rating: 2.5/3.0 stars (rounded to 3 pts)',
+            fact=self.fact
+        )
+        
+        self.assertEqual(correct_log.score_type, 'correct_guess')
+        self.assertEqual(wrong_log.score_type, 'wrong_guesses')
+        self.assertEqual(story_log.score_type, 'story_rating')
+        
+    def test_score_log_ordering(self):
+        """Test that ScoreLogs are ordered by timestamp"""
+        log1 = ScoreLog.objects.create(
+            game=self.game,
+            player=self.player1,
+            points=1,
+            score_type='correct_guess',
+            description='First log'
+        )
+        
+        log2 = ScoreLog.objects.create(
+            game=self.game,
+            player=self.player1,
+            points=2,
+            score_type='wrong_guesses',
+            description='Second log'
+        )
+        
+        # Get logs ordered by timestamp (newest first)
+        logs = ScoreLog.objects.filter(game=self.game).order_by('-timestamp')
+        self.assertEqual(logs[0], log2)  # Newest first
+        self.assertEqual(logs[1], log1)
+
+class StoryRatingScoreTest(BaseGameTestCase):
+    """Test story rating scoring and ScoreLog integration"""
+    
+    def setUp(self):
+        super().setUp()
+        self.player1 = self.create_player("Alice", "🔴")
+        self.player2 = self.create_player("Bob", "🔵")
+        self.fact = self.create_fact(self.player1, "I love programming")
+        self.game.current_fact = self.fact
+        self.game.game_phase = 'rating'
+        self.game.save()
+        
+    def test_story_rating_score_calculation(self):
+        """Test that story rating scores are calculated and logged correctly"""
+        # Create story ratings
+        StoryRating.objects.create(fact=self.fact, rater=self.player2, rating=3)
+        StoryRating.objects.create(fact=self.fact, rater=self.host, rating=2)
+        
+        # Calculate average as the view would
+        ratings = StoryRating.objects.filter(fact=self.fact)
+        avg_rating = sum(r.rating for r in ratings) / ratings.count()
+        story_points = round(avg_rating)
+        
+        # Update fact with average
+        self.fact.story_rating_average = avg_rating
+        self.fact.story_rating_count = ratings.count()
+        self.fact.save()
+        
+        # Award points and create log
+        author_score = Score.objects.get(player=self.player1, game=self.game)
+        author_score.points += story_points
+        author_score.save()
+        
+        ScoreLog.objects.create(
+            game=self.game,
+            player=self.player1,
+            points=story_points,
+            score_type='story_rating',
+            description=f'Story rating: {avg_rating:.1f}/3.0 stars (rounded to {story_points} pts)',
+            fact=self.fact
+        )
+        
+        # Verify calculations
+        self.assertEqual(avg_rating, 2.5)
+        self.assertEqual(story_points, 2)  # 2.5 rounds to 2 (banker's rounding)
+        self.assertEqual(author_score.points, 2)
+        
+        # Verify ScoreLog
+        story_log = ScoreLog.objects.filter(
+            player=self.player1, 
+            score_type='story_rating'
+        ).first()
+        self.assertIsNotNone(story_log)
+        self.assertEqual(story_log.points, 2)
+        self.assertIn('2.5/3.0 stars', story_log.description)
+
+class GameStateWithScoreLogsTest(BaseGameTestCase):
+    """Test GameState API includes ScoreLogs"""
+    
+    def setUp(self):
+        super().setUp()
+        self.player1 = self.create_player("Alice", "🔴")
+        
+        # Create some score logs
+        ScoreLog.objects.create(
+            game=self.game,
+            player=self.player1,
+            points=3,
+            score_type='correct_guess',
+            description='Correct guess for fact'
+        )
+        ScoreLog.objects.create(
+            game=self.game,
+            player=self.host,
+            points=2,
+            score_type='wrong_guesses',
+            description='2 wrong guesses on their fact'
+        )
+        
+    def test_game_state_includes_score_logs(self):
+        """Test that game state API includes recent score logs"""
+        response = self.client.get(f'/api/game/state/{self.game.token}/')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('score_logs', response.data)
+        
+        score_logs = response.data['score_logs']
+        self.assertEqual(len(score_logs), 2)
+        
+        # Verify log structure
+        log = score_logs[0]  # Should be most recent first
+        self.assertIn('id', log)
+        self.assertIn('points', log)
+        self.assertIn('score_type', log)
+        self.assertIn('description', log)
+        self.assertIn('timestamp', log)
+        self.assertIn('player_name', log)
+        self.assertIn('player_emoji', log)
+
+class IntegrationTest(BaseGameTestCase):
+    """Integration test for complete game flow with ScoreLogs"""
+    
+    def setUp(self):
+        super().setUp()
+        self.player1 = self.create_player("Alice", "🔴")
+        self.player2 = self.create_player("Bob", "🔵")
+        self.fact = self.create_fact(self.player1, "I love programming")
+        
+    def test_complete_round_with_score_logs(self):
+        """Test complete round with proper ScoreLog creation"""
+        # Set up game state
+        self.game.current_fact = self.fact
+        self.game.game_phase = 'guessing'
+        self.game.save()
+        
+        # Make wrong guess first
+        response1 = self.client.post('/api/game/submit_live_guess/', {
+            'player_id': self.player2.id,
+            'fact_id': self.fact.id,
+            'guessed_player_id': self.host.id  # Wrong
+        }, format='json')
+        self.assertEqual(response1.status_code, status.HTTP_200_OK)
+        
+        # Make correct guess
+        response2 = self.client.post('/api/game/submit_live_guess/', {
+            'player_id': self.host.id,
+            'fact_id': self.fact.id,
+            'guessed_player_id': self.player1.id  # Correct
+        }, format='json')
+        self.assertEqual(response2.status_code, status.HTTP_200_OK)
+        
+        # Verify game moved to storytelling
+        self.game.refresh_from_db()
+        self.assertEqual(self.game.game_phase, 'storytelling')
+        
+        # Verify ScoreLogs were created
+        correct_log = ScoreLog.objects.filter(
+            player=self.host, 
+            score_type='correct_guess'
+        ).first()
+        wrong_log = ScoreLog.objects.filter(
+            player=self.player1, 
+            score_type='wrong_guesses'
+        ).first()
+        
+        self.assertIsNotNone(correct_log)
+        self.assertIsNotNone(wrong_log)
+        self.assertEqual(correct_log.points, 3)
+        self.assertEqual(wrong_log.points, 1)  # 1 wrong guess
+        
+        # Finish storytelling
+        response3 = self.client.post('/api/game/finish_story/', {
+            'player_id': self.player1.id,
+            'token': self.game.token
+        }, format='json')
+        self.assertEqual(response3.status_code, status.HTTP_200_OK)
+        
+        # Verify game moved to rating
+        self.game.refresh_from_db()
+        self.assertEqual(self.game.game_phase, 'rating')
+        
+        # Submit story ratings
+        response4 = self.client.post('/api/game/submit_story_rating/', {
+            'player_id': self.player2.id,
+            'fact_id': self.fact.id,
+            'rating': 3
+        }, format='json')
+        self.assertEqual(response4.status_code, status.HTTP_200_OK)
+        
+        response5 = self.client.post('/api/game/submit_story_rating/', {
+            'player_id': self.host.id,
+            'fact_id': self.fact.id,
+            'rating': 2
+        }, format='json')
+        self.assertEqual(response5.status_code, status.HTTP_200_OK)
+        
+        # After all ratings, should have story rating ScoreLog
+        story_log = ScoreLog.objects.filter(
+            player=self.player1,
+            score_type='story_rating'
+        ).first()
+        self.assertIsNotNone(story_log)
+        self.assertEqual(story_log.points, 2)  # Average 2.5 rounds to 2 (banker's rounding)
+        
+        # Verify total score logs created (correct + wrong + story)
+        total_logs = ScoreLog.objects.filter(game=self.game).count()
+        self.assertEqual(total_logs, 3)
