@@ -160,7 +160,7 @@ class SubmitLiveGuessView(views.APIView):
             # Calculate wrong guesses for scoring
             wrong_guess_count = LiveGuess.objects.filter(fact=fact, is_correct=False).count()
             
-            # Record traditional guess event for scoring
+            # record traditional guess event for scoring
             GuessEvent.objects.create(
                 fact=fact, 
                 correct_guesser=player, 
@@ -205,6 +205,50 @@ class SubmitLiveGuessView(views.APIView):
             
             # Reset player story flags
             Player.objects.filter(game=game).update(has_finished_story=False, has_rated_story=False)
+        else:
+            # Check for deadlock: all eligible players have guessed and no one got it right
+            game = fact.game
+            total_guesses = LiveGuess.objects.filter(fact=fact).count()
+            eligible_players = Player.objects.filter(game=game).exclude(id=fact.author.id).count()
+            
+            # If all eligible players have guessed and none were correct, it's a deadlock
+            if total_guesses >= eligible_players:
+                # Mark fact as guessed to end the round
+                fact.guessed = True
+                fact.save()
+                
+                # Author gets maximum points (total wrong guesses)
+                wrong_guess_count = total_guesses  # All guesses were wrong
+                
+                # Record deadlock event (no correct guesser)
+                GuessEvent.objects.create(
+                    fact=fact,
+                    correct_guesser=None,  # No one guessed correctly
+                    wrong_guess_count=wrong_guess_count
+                )
+                
+                # Award maximum points to author
+                author_score = Score.objects.get(player=fact.author, game=game)
+                author_score.points += wrong_guess_count
+                author_score.save()
+                
+                # Log deadlock points for author
+                ScoreLog.objects.create(
+                    game=game,
+                    player=fact.author,
+                    points=wrong_guess_count,
+                    score_type='wrong_guesses',
+                    description=f'Deadlock! Everyone guessed wrong ({wrong_guess_count} wrong guesses)',
+                    fact=fact
+                )
+                
+                # Switch to storytelling phase with author as storyteller
+                game.game_phase = 'storytelling'
+                game.story_teller = fact.author
+                game.save()
+                
+                # Reset player story flags
+                Player.objects.filter(game=game).update(has_finished_story=False, has_rated_story=False)
         
         return Response(LiveGuessSerializer(live_guess).data)
 
@@ -454,13 +498,157 @@ class KickPlayerView(views.APIView):
             
         if player_to_kick.is_host:
             return Response({'error': 'Cannot kick host.'}, status=400)
+        
+        # Если игрок является текущим рассказчиком, сбрасываем игру в фазу угадывания
+        if game.story_teller and game.story_teller.id == player_to_kick.id:
+            game.game_phase = 'guessing'
+            game.story_teller = None
+            game.current_fact = None
+            game.save()
             
-        # Удаляем игрока и его факты
-        Fact.objects.filter(author=player_to_kick).delete()
+        # Если текущий факт принадлежит кикаемому игроку, сбрасываем его
+        if game.current_fact and game.current_fact.author.id == player_to_kick.id:
+            game.current_fact = None
+            game.save()
+            
+        # Удаляем связанные данные игрока
+        # Удаляем живые догадки игрока
+        LiveGuess.objects.filter(guesser=player_to_kick).delete()
+        LiveGuess.objects.filter(guessed_player=player_to_kick).delete()
+        
+        # Удаляем оценки историй от игрока
+        StoryRating.objects.filter(rater=player_to_kick).delete()
+        
+        # Удаляем события угадывания с участием игрока
+        GuessEvent.objects.filter(correct_guesser=player_to_kick).delete()
+        
+        # Удаляем записи о баллах игрока
+        ScoreLog.objects.filter(player=player_to_kick).delete()
+        
+        # Удаляем факты игрока (это также удалит связанные события угадывания и оценки)
+        player_facts = Fact.objects.filter(author=player_to_kick)
+        for fact in player_facts:
+            # Удаляем связанные данные факта
+            LiveGuess.objects.filter(fact=fact).delete()
+            StoryRating.objects.filter(fact=fact).delete()
+            GuessEvent.objects.filter(fact=fact).delete()
+            ScoreLog.objects.filter(fact=fact).delete()
+        player_facts.delete()
+        
+        # Удаляем счет игрока
         Score.objects.filter(player=player_to_kick).delete()
+        
+        # Удаляем самого игрока
+        player_name = player_to_kick.name
         player_to_kick.delete()
         
-        return Response({'status': 'Player kicked successfully.'})
+        # После кика проверяем, не заблокирована ли игра, и пытаемся ее разблокировать
+        self._check_and_unblock_game_after_kick(game)
+        
+        return Response({'status': f'Player {player_name} kicked successfully with all their data.'})
+
+    def _check_and_unblock_game_after_kick(self, game):
+        """Check if game is blocked after kicking a player and try to unblock it"""
+        
+        if game.game_phase == 'guessing' and game.current_fact:
+            # Check for deadlock in guessing phase
+            fact = game.current_fact
+            total_guesses = LiveGuess.objects.filter(fact=fact).count()
+            eligible_players = Player.objects.filter(game=game).exclude(id=fact.author.id).count()
+            
+            # If all remaining eligible players have guessed and no one got it right, trigger deadlock
+            if total_guesses >= eligible_players and total_guesses > 0:
+                # Check if any guess was correct
+                correct_guess = LiveGuess.objects.filter(fact=fact, is_correct=True).first()
+                if not correct_guess:
+                    # Trigger deadlock logic - same as in SubmitLiveGuessView
+                    fact.guessed = True
+                    fact.save()
+                    
+                    # Author gets maximum points
+                    wrong_guess_count = total_guesses
+                    
+                    # Record deadlock event
+                    GuessEvent.objects.create(
+                        fact=fact,
+                        correct_guesser=None,
+                        wrong_guess_count=wrong_guess_count
+                    )
+                    
+                    # Award points to author
+                    author_score = Score.objects.get(player=fact.author, game=game)
+                    author_score.points += wrong_guess_count
+                    author_score.save()
+                    
+                    # Log deadlock points
+                    ScoreLog.objects.create(
+                        game=game,
+                        player=fact.author,
+                        points=wrong_guess_count,
+                        score_type='wrong_guesses',
+                        description=f'Deadlock after player kick! ({wrong_guess_count} wrong guesses)',
+                        fact=fact
+                    )
+                    
+                    # Switch to storytelling phase
+                    game.game_phase = 'storytelling'
+                    game.story_teller = fact.author
+                    game.save()
+                    
+                    # Reset player story flags
+                    Player.objects.filter(game=game).update(has_finished_story=False, has_rated_story=False)
+        
+        elif game.game_phase == 'rating' and game.current_fact:
+            # Check if all remaining players have rated (except story teller)
+            fact = game.current_fact
+            players_count = game.players.count()
+            rated_count = game.players.filter(has_rated_story=True).count()
+            
+            # If everyone has rated, move to next round
+            if rated_count >= (players_count - 1):  # -1 because story teller doesn't rate
+                # Calculate average rating
+                ratings = StoryRating.objects.filter(fact=fact)
+                if ratings.exists():
+                    avg_rating = sum(r.rating for r in ratings) / ratings.count()
+                    fact.story_rating_average = avg_rating
+                    fact.story_rating_count = ratings.count()
+                    
+                    # Award story points to author
+                    story_points = round(avg_rating)
+                    author_score = Score.objects.get(player=fact.author, game=game)
+                    author_score.points += story_points
+                    author_score.save()
+                    
+                    # Log story rating points
+                    ScoreLog.objects.create(
+                        game=game,
+                        player=fact.author,
+                        points=story_points,
+                        score_type='story_rating',
+                        description=f'Story rating: {avg_rating:.1f}/3.0 stars (rounded to {story_points} pts)',
+                        fact=fact
+                    )
+                    
+                    fact.save()
+                
+                # Move to next round
+                game.game_phase = 'guessing'
+                game.story_teller = None
+                
+                # Auto-select next fact if available
+                unguessed_facts = Fact.objects.filter(game=game, guessed=False)
+                if unguessed_facts.exists():
+                    import random
+                    next_fact = random.choice(unguessed_facts)
+                    game.current_fact = next_fact
+                else:
+                    game.current_fact = None
+                    game.ended = True
+                
+                game.save()
+                
+                # Reset player flags for next round
+                Player.objects.filter(game=game).update(has_finished_story=False, has_rated_story=False)
 
 class AnalyticsView(views.APIView):
     def get(self, request):
@@ -582,9 +770,18 @@ class SetCurrentFactView(views.APIView):
 class EndGameView(views.APIView):
     def post(self, request):
         token = request.data.get('token')
+        requester_id = request.data.get('requester_id')
+        
         game = Game.objects.filter(token=token).first()
         if not game:
             return Response({'error': 'Game not found.'}, status=404)
+            
+        # Check if requester is host
+        if requester_id:
+            requester = Player.objects.filter(id=requester_id, game=game, is_host=True).first()
+            if not requester:
+                return Response({'error': 'Only host can end the game.'}, status=403)
+        
         game.ended = True
         game.save()
-        return Response({'status': 'Game ended.'})
+        return Response({'status': 'Game ended by host.'})

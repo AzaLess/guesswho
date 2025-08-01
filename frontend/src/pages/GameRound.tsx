@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getGameState, submitFact, submitLiveGuess, finishStoryTelling, submitStoryRating, setCurrentFact } from "../api";
+import { getGameState, submitFact, submitLiveGuess, finishStoryTelling, submitStoryRating, setCurrentFact, endGame } from "../api";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../hooks/useToast";
 import ToastContainer from "../components/ToastContainer";
@@ -7,6 +7,7 @@ import SoundToggle from "../components/SoundToggle";
 import { playCorrectAnswer, playWrongAnswer, playNextRound, playNewFact } from "../utils/sounds";
 import BackToMenuButton from "../components/BackToMenuButton";
 import GameStats from "../components/GameStats";
+import PlayerKickButton from "../components/PlayerKickButton";
 
 export default function GameRound() {
   const token = localStorage.getItem("token") || "";
@@ -26,6 +27,9 @@ export default function GameRound() {
   const [showAddFact, setShowAddFact] = useState(false);
   const [newFact, setNewFact] = useState("");
   const [addingFact, setAddingFact] = useState(false);
+  const [readingTimer, setReadingTimer] = useState(0);
+  const [isReading, setIsReading] = useState(false);
+  const [showRemainingFacts, setShowRemainingFacts] = useState(false);
   // Remove local scoreLog as we get it from API
   
   const navigate = useNavigate();
@@ -64,6 +68,27 @@ export default function GameRound() {
       setStoryRating(null);
     }
   }, [gameState?.current_fact?.id]);
+
+  // Start reading timer when a new fact appears in guessing phase
+  useEffect(() => {
+    if (gameState?.current_fact && gameState?.game_phase === 'guessing') {
+      setIsReading(true);
+      setReadingTimer(5);
+      
+      const interval = setInterval(() => {
+        setReadingTimer((prev) => {
+          if (prev <= 1) {
+            setIsReading(false);
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [gameState?.current_fact?.id, gameState?.game_phase]);
 
   // Score tracking is now handled by backend ScoreLog
 
@@ -145,6 +170,157 @@ export default function GameRound() {
     }
   };
 
+  const handlePlayerKicked = async () => {
+    // Refresh game state after kicking a player
+    try {
+      const data = await getGameState(token);
+      setGameState(data);
+    } catch (error) {
+      console.error("Error refreshing game state:", error);
+    }
+  };
+
+  const handleEndGame = async () => {
+    if (!confirm("Are you sure you want to end the game early? This will show final results and statistics.")) {
+      return;
+    }
+
+    try {
+      await endGame(token, player.id);
+      showSuccess('Game ended successfully!');
+      navigate("/end");
+    } catch (error: any) {
+      console.error("Error ending game:", error);
+      showError(error.response?.data?.error || 'Failed to end game');
+    }
+  };
+
+  const RemainingFactsModal = () => {
+    if (!showRemainingFacts) return null;
+
+    const unguessedFacts = facts.filter((f: any) => !f.guessed);
+    
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          padding: '24px',
+          maxWidth: '600px',
+          maxHeight: '80vh',
+          overflow: 'auto',
+          margin: '20px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '20px',
+            borderBottom: '2px solid #f0f0f0',
+            paddingBottom: '12px'
+          }}>
+            <h3 style={{ margin: 0, color: '#333' }}>📝 Remaining Facts ({unguessedFacts.length})</h3>
+            <button
+              onClick={() => setShowRemainingFacts(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                color: '#666'
+              }}
+            >
+              ✕
+            </button>
+          </div>
+          
+          {unguessedFacts.length === 0 ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '40px 20px',
+              color: '#666'
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
+              <h4>All facts have been guessed!</h4>
+              <p>The game is ready to end.</p>
+            </div>
+          ) : (
+            <div>
+              {unguessedFacts.map((fact: any, index: number) => {
+                return (
+                  <div key={fact.id} style={{
+                    backgroundColor: '#f8f9fa',
+                    border: '1px solid #e9ecef',
+                    borderRadius: '8px',
+                    padding: '16px',
+                    marginBottom: '12px'
+                  }}>
+                    <div style={{
+                      marginBottom: '8px'
+                    }}>
+                      <span style={{
+                        backgroundColor: '#007bff',
+                        color: 'white',
+                        padding: '4px 8px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}>
+                        #{index + 1}
+                      </span>
+                    </div>
+                    <p style={{
+                      margin: '0',
+                      fontSize: '16px',
+                      lineHeight: '1.4',
+                      color: '#333'
+                    }}>
+                      "{fact.text}"
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          
+          <div style={{
+            marginTop: '20px',
+            textAlign: 'center',
+            borderTop: '1px solid #e9ecef',
+            paddingTop: '16px'
+          }}>
+            <button
+              onClick={() => setShowRemainingFacts(false)}
+              style={{
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '10px 20px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (!gameState) {
     return (
       <div className="app-container">
@@ -161,6 +337,80 @@ export default function GameRound() {
     ...player,
     scores: scores ? scores.filter((s: any) => s.player === player.id) : []
   }));
+
+  // Host management panel component
+  const HostManagementPanel = () => {
+    if (!player.is_host || players.length <= 1) return null;
+    
+    return (
+      <div className="host-management-panel" style={{
+        background: 'rgba(255, 193, 7, 0.1)',
+        border: '1px solid #ffc107',
+        borderRadius: '8px',
+        padding: '12px',
+        margin: '16px 0',
+        fontSize: '14px'
+      }}>
+        <h4 style={{ margin: '0 0 8px 0', color: '#856404' }}>👑 Host Controls</h4>
+        
+        <div className="host-actions" style={{ marginBottom: '12px' }}>
+          <button
+            onClick={handleEndGame}
+            style={{
+              background: 'linear-gradient(135deg, #dc3545, #b02a37)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '8px 16px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+            }}
+          >
+            🏁 End Game Early
+          </button>
+        </div>
+        
+        <div className="player-management">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {players
+              .filter((p: any) => !p.is_host)
+              .map((p: any) => (
+                <div key={p.id} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  background: 'white',
+                  padding: '4px 8px',
+                  borderRadius: '16px',
+                  border: '1px solid #ddd',
+                  fontSize: '12px'
+                }}>
+                  <PlayerKickButton
+                    player={p}
+                    currentPlayer={player}
+                    token={token}
+                    onKick={handlePlayerKicked}
+                    showSuccess={showSuccess}
+                    showError={showError}
+                    compact={true}
+                  />
+                </div>
+              ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // If no current fact during guessing phase, show start round button
   if (!current_fact && game_phase === 'guessing') {
@@ -208,11 +458,29 @@ export default function GameRound() {
         <ToastContainer toasts={toasts} removeToast={removeToast} />
         <SoundToggle />
         <BackToMenuButton />
+        <RemainingFactsModal />
         <h2>🎯 Guessing Phase</h2>
         
         <div className="fact-display">
           <h3>"{current_fact.text}"</h3>
         </div>
+
+        {isReading && (
+          <div className="reading-timer" style={{
+            background: 'linear-gradient(135deg, #ff9800, #f57c00)',
+            color: 'white',
+            padding: '12px 20px',
+            borderRadius: '8px',
+            textAlign: 'center',
+            fontSize: '18px',
+            fontWeight: 'bold',
+            margin: '16px 0',
+            boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+            border: '2px solid #e65100'
+          }}>
+            📖 Read the fact carefully... {readingTimer}s
+          </div>
+        )}
 
         <div className="questions-left">
           Questions remaining: <b>{unguessedFacts.length}</b>
@@ -220,12 +488,12 @@ export default function GameRound() {
 
         {!playerAlreadyGuessed ? (
           <div className="guessing-section">
-            <h4>Who do you think wrote this fact?</h4>
+            <h4>{isReading ? "Read the fact first, then choose:" : "Who do you think wrote this fact?"}</h4>
             <div className="player-buttons">
               {availablePlayers.map((p: any) => {
                 const isSelf = p.id === player.id;
                 const isEliminated = incorrectlyGuessedPlayers.includes(p.id);
-                const isDisabled = loading || isSelf || isEliminated;
+                const isDisabled = loading || isSelf || isEliminated || isReading;
                 
                 return (
                   <button
@@ -234,6 +502,7 @@ export default function GameRound() {
                     disabled={isDisabled}
                     className={`player-btn ${isSelf ? 'disabled-self' : ''} ${isEliminated ? 'eliminated' : ''}`}
                     title={
+                      isReading ? "Wait for the reading timer to finish" :
                       isSelf ? "You can't vote for yourself" : 
                       isEliminated ? "This player was already incorrectly guessed" : ""
                     }
@@ -308,6 +577,8 @@ export default function GameRound() {
           )}
         </div>
         
+        <HostManagementPanel />
+        
         <GameStats 
           players={playersWithScores}
           facts={facts}
@@ -327,6 +598,7 @@ export default function GameRound() {
         <ToastContainer toasts={toasts} removeToast={removeToast} />
         <SoundToggle />
         <BackToMenuButton />
+        <RemainingFactsModal />
         <h2>📖 Story Time!</h2>
         
         <div className="fact-display">
@@ -384,6 +656,7 @@ export default function GameRound() {
         <ToastContainer toasts={toasts} removeToast={removeToast} />
         <SoundToggle />
         <BackToMenuButton />
+        <RemainingFactsModal />
         <h2>⭐ Rate the Story</h2>
         
         <div className="fact-display">
@@ -454,10 +727,12 @@ export default function GameRound() {
           </div>
         )}
         
+        <HostManagementPanel />
         <GameStats 
           players={playersWithScores}
           facts={facts}
           scoreLog={score_logs || []}
+          showRemainingFacts={() => setShowRemainingFacts(true)}
         />
       </div>
     );
@@ -468,12 +743,17 @@ export default function GameRound() {
       <h2>⏳ Loading...</h2>
       
       {gameState && (
-        <GameStats 
-          players={playersWithScores || []}
-          facts={facts || []}
-          scoreLog={score_logs || []}
-        />
+        <>
+          <HostManagementPanel />
+          <GameStats 
+            players={playersWithScores || []}
+            facts={facts || []}
+            scoreLog={score_logs || []}
+            showRemainingFacts={() => setShowRemainingFacts(true)}
+          />
+        </>
       )}
+      <RemainingFactsModal />
     </div>
   );
 }

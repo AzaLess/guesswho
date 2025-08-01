@@ -4,9 +4,20 @@ interface GameStatsProps {
   players: any[];
   facts: any[];
   scoreLog?: any[];
+  showRemainingFacts?: () => void;
 }
 
-export default function GameStats({ players, facts, scoreLog = [] }: GameStatsProps) {
+export default function GameStats({ players, facts, scoreLog = [], showRemainingFacts }: GameStatsProps) {
+  // Check if current user is host - we'll get this from localStorage to match GameRound pattern
+  const getPlayerFromStorage = () => {
+    try {
+      const playerData = localStorage.getItem("player");
+      return playerData ? JSON.parse(playerData) : {};
+    } catch (error) {
+      return {};
+    }
+  };
+  const currentPlayer = getPlayerFromStorage();
   const [isExpanded, setIsExpanded] = useState(false);
 
   const guessedFacts = facts.filter(f => f.guessed);
@@ -21,12 +32,43 @@ export default function GameStats({ players, facts, scoreLog = [] }: GameStatsPr
 
   return (
     <div className="game-stats">
-      <button 
-        className="stats-toggle"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        📊 Stats {isExpanded ? '▼' : '▲'}
-      </button>
+      <div className="stats-controls" style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+        <button 
+          className="stats-toggle"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          📊 Stats {isExpanded ? '▼' : '▲'}
+        </button>
+        
+        {showRemainingFacts && currentPlayer.is_host && (
+          <button 
+            className="stats-toggle"
+            onClick={showRemainingFacts}
+            style={{
+              background: 'linear-gradient(135deg, #17a2b8, #138496)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '8px 16px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+            }}
+          >
+            📝 Facts ({unguessedFacts.length})
+          </button>
+        )}
+      </div>
       
       {isExpanded && (
         <div className="stats-content">

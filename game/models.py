@@ -45,7 +45,7 @@ class Fact(models.Model):
 
 class GuessEvent(models.Model):
     fact = models.ForeignKey(Fact, related_name='guess_events', on_delete=models.CASCADE)
-    correct_guesser = models.ForeignKey(Player, related_name='correct_guesses', on_delete=models.CASCADE)
+    correct_guesser = models.ForeignKey(Player, related_name='correct_guesses', on_delete=models.CASCADE, null=True, blank=True)
     wrong_guess_count = models.PositiveIntegerField()
     timestamp = models.DateTimeField(auto_now_add=True)
 

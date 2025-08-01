@@ -47,8 +47,8 @@ export const kickPlayer = async (token: string, player_id: number, requester_id:
   return res.data;
 };
 
-export const endGame = async (token: string) => {
-  const res = await axios.post(API_BASE + "end/", { token });
+export const endGame = async (token: string, requester_id?: number) => {
+  const res = await axios.post(API_BASE + "end/", { token, requester_id });
   return res.data;
 };
 
